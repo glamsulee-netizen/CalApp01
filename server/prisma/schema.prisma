@@ -1,0 +1,319 @@
+// ============================================
+// CalApp01 — Prisma Schema (PostgreSQL)
+// ============================================
+// Полная схема базы данных приложения
+// Миграция: npx prisma migrate dev --name init
+// Генерация клиента: npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+/// Роль пользователя на уровне платформы
+enum PlatformRole {
+  ADMIN
+  USER
+}
+
+/// Роль пользователя в рамках конкретного календаря
+enum CalendarRole {
+  SPECIALIST // Может управлять календарём, видеть все брони
+  CLIENT     // Может бронировать слоты
+  ZOMBIE     // Может только просматривать (нет возможности бронировать)
+}
+
+/// Статус бронирования
+enum BookingStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+/// Тип промокода подписки
+enum PromoType {
+  SUBSCRIPTION_MONTH // 30 дней
+  SUBSCRIPTION_YEAR  // 365 дней
+}
+
+/// Статус email в очереди
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+/// Пользователь системы
+/// При первом запуске создаётся admin с пустым паролем и mustChangePassword=true
+model User {
+  id                 Int       @id @default(autoincrement())
+  email              String    @unique
+  password           String    // bcrypt hash
+  name               String    @default("")
+  phone              String    @default("")
+  messenger          String    @default("") // Логин/номер мессенджера
+  messengerType      String    @default("") // telegram, whatsapp, viber и т.д.
+  role               PlatformRole @default(USER)
+  mustChangePassword Boolean   @default(false)
+  isActive           Boolean   @default(true)
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // --- Связи ---
+  ownedCalendars     Calendar[]        @relation("CalendarOwner")
+  memberships        CalendarMember[]
+  bookings           Booking[]
+  pushSubscriptions  PushSubscription[]
+  notifications      Notification[]
+  usedPromoCodes     PromoCode[]       @relation("PromoCodeUsedBy")
+
+  @@map("users")
+}
+
+/// Календарь специалиста
+/// Создаётся после активации одноразового кода от админа
+model Calendar {
+  id            Int       @id @default(autoincrement())
+  ownerId       Int
+  code          String    @unique @default(uuid()) // Уникальный код для подписки
+  shareLink     String    @unique @default(uuid()) // Уникальная ссылка для шаринга
+  title         String    @default("Мой календарь")
+  
+  // --- Настройки отображения ---
+  startHour     Int       @default(8)   // Начало рабочего дня (0-23)
+  endHour       Int       @default(22)  // Конец рабочего дня (1-24)
+  slotDuration  Int       @default(60)  // Длительность слота по умолчанию (минуты)
+  workDays      Int[]     @default([1, 2, 3, 4, 5]) // Дни недели: 1=Пн, 7=Вс
+  
+  // --- Кастомизация внешнего вида ---
+  colorScheme   Json      @default("{}")  // {primary, secondary, accent, bg}
+  bgImage       String    @default("")    // URL фонового изображения    
+
+  // --- Оплата ---
+  paymentLink   String    @default("") // Ссылка на оплату (из банка специалиста)
+
+  // --- Подписка специалиста ---
+  isActive      Boolean   @default(true)
+  subscriptionEnd DateTime? // Дата окончания подписки; null = бессрочно (для тестов)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // --- Связи ---
+  owner         User      @relation("CalendarOwner", fields: [ownerId], references: [id])
+  members       CalendarMember[]
+  slots         Slot[]
+  bookings      Booking[]
+  notifications Notification[]
+
+  @@map("calendars")
+}
+
+/// Членство пользователя в календаре
+/// role: SPECIALIST (совладелец), CLIENT (может бронировать), ZOMBIE (только просмотр)
+/// Новые пользователи попадают как ZOMBIE, специалист повышает до CLIENT
+model CalendarMember {
+  id          Int          @id @default(autoincrement())
+  calendarId  Int
+  userId      Int
+  role        CalendarRole @default(ZOMBIE)
+  maxBookings Int          @default(1) // Максимум одновременных бронирований
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // --- Связи ---
+  calendar    Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([calendarId, userId]) // Один пользователь — одно членство в календаре
+  @@map("calendar_members")
+}
+
+/// Слот в календаре — конкретное окно времени на конкретную дату
+/// AGENT_INSTRUCTION: Слоты создаются специалистом. startTime и endTime в формате "HH:MM".
+/// Слот может занимать несколько строк в сетке (touch-resize меняет endTime).
+model Slot {
+  id          Int       @id @default(autoincrement())
+  calendarId  Int
+  date        DateTime  @db.Date    // Только дата (без времени)
+  startTime   String    // "HH:MM" формат, например "10:00"
+  endTime     String    // "HH:MM" формат, например "11:30"
+  isOpen      Boolean   @default(true) // Открыт ли для бронирования
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // --- Связи ---
+  calendar    Calendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  booking     Booking?  // Один слот — максимум одна бронь
+
+  @@unique([calendarId, date, startTime]) // Нет дублей слотов
+  @@map("slots")
+}
+
+/// Бронирование слота пользователем
+/// AGENT_INSTRUCTION: При создании бронирования:
+/// 1. Проверить что слот isOpen=true и нет другой активной брони
+/// 2. Проверить что у пользователя не превышен maxBookings
+/// 3. Заблокировать слот (Redis lock) для предотвращения race condition
+/// 4. Отправить WebSocket событие всем в комнате календаря
+/// 5. Отправить push-уведомление специалисту
+model Booking {
+  id          Int           @id @default(autoincrement())
+  slotId      Int           @unique // Один слот = одно бронирование
+  userId      Int
+  calendarId  Int
+  isPaid      Boolean       @default(false) // Статус оплаты (ставит специалист)
+  status      BookingStatus @default(ACTIVE)
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // --- Связи ---
+  slot        Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+  calendar    Calendar @relation(fields: [calendarId], references: [id])
+
+  @@map("bookings")
+}
+
+/// Промокод для активации подписки специалиста
+/// AGENT_INSTRUCTION: Коды генерируются админом, вводятся специалистом.
+/// При активации:
+/// 1. Проверить что код не использован (isUsed=false)
+/// 2. Записать время сервера как activatedAt
+/// 3. Рассчитать expiresAt = activatedAt + durationDays
+/// 4. Обновить calendar.subscriptionEnd
+/// 5. Пометить isUsed=true, записать usedById
+model PromoCode {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique // 8-символьный уникальный код
+  type         PromoType
+  durationDays Int       // 30 для месяца, 365 для года
+  isUsed       Boolean   @default(false)
+  usedById     Int?
+  activatedAt  DateTime?
+  expiresAt    DateTime?
+
+  createdAt    DateTime  @default(now())
+
+  // --- Связи ---
+  usedBy       User?     @relation("PromoCodeUsedBy", fields: [usedById], references: [id])
+
+  @@map("promo_codes")
+}
+
+/// Подписка на push-уведомления
+/// AGENT_INSTRUCTION: Один пользователь может иметь несколько подписок
+/// (разные устройства/браузеры). endpoint уникален для каждого устройства.
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  endpoint  String   @unique
+  keys      Json     // { p256dh, auth } — ключи шифрования
+
+  createdAt DateTime @default(now())
+
+  // --- Связи ---
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+/// Уведомление в интерфейсе (in-app)
+/// AGENT_INSTRUCTION: Типы уведомлений:
+/// - BOOKING_CREATED: "Новая запись: {userName} на {date} {time}"
+/// - BOOKING_CANCELLED: "Отмена записи: {userName} на {date} {time}"
+/// - BOOKING_MOVED: "Перенос записи: {userName} с {oldDate} на {newDate}"
+/// - REMINDER: "Напоминание: запись через 1 час ({time})"
+/// - SUBSCRIPTION_EXPIRING: "Подписка истекает через {days} дней"
+model Notification {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  calendarId  Int?
+  type        String   // Тип уведомления (см. выше)
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+
+  // --- Связи ---
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendar    Calendar? @relation(fields: [calendarId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+/// SMTP-провайдер для отправки email
+/// AGENT_INSTRUCTION: Провайдеры отсортированы по priority (ASC).
+/// При отправке email выбирается первый активный провайдер с sentToday < dailyLimit.
+/// Счётчик sentToday сбрасывается ежедневно cron-задачей в полночь.
+/// Поле password хранится в зашифрованном виде (AES-256).
+model SmtpProvider {
+  id          Int      @id @default(autoincrement())
+  name        String   // Человекочитаемое имя ("Brevo", "Gmail")
+  host        String   // SMTP хост
+  port        Int      // SMTP порт (587, 465)
+  user        String   // Логин
+  password    String   // Пароль (зашифрован)
+  fromEmail   String   // Email отправителя
+  dailyLimit  Int      @default(300)
+  sentToday   Int      @default(0)
+  lastResetAt DateTime @default(now())
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0) // Меньше = приоритетнее
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("smtp_providers")
+}
+
+/// Очередь email для отложенной отправки
+/// AGENT_INSTRUCTION: Письма попадают в очередь когда все SMTP-провайдеры
+/// исчерпали дневной лимит. Cron-задача проверяет каждые 5 минут.
+model EmailQueue {
+  id        Int         @id @default(autoincrement())
+  toEmail   String
+  subject   String
+  body      String      @db.Text
+  status    EmailStatus @default(PENDING)
+  attempts  Int         @default(0)
+  maxAttempts Int       @default(5)
+  sentAt    DateTime?
+  error     String?
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("email_queue")
+}
+
+/// Настройки платформы (ключ-значение)
+/// AGENT_INSTRUCTION: Хранит глобальные настройки:
+/// - registration_open: "true"/"false"
+/// - default_calendar_start_hour: "8"
+/// - default_calendar_end_hour: "22"
+/// - default_slot_duration: "60"
+model PlatformSettings {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+
+  @@map("platform_settings")
+}

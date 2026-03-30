@@ -1,0 +1,25 @@
+# ============================================
+# CalApp01 — Caddy Configuration
+# ============================================
+# Automatic HTTPS via Let's Encrypt / ZeroSSL
+# Proxy API -> server:3000, Static -> client:80
+
+{$APP_DOMAIN:localhost} {
+	# Compress responses
+	encode zstd gzip
+
+	# Proxy API requests
+	handle /api/* {
+		reverse_proxy server:3000
+	}
+
+	# Proxy WebSocket Connect
+	handle /socket.io/* {
+		reverse_proxy server:3000
+	}
+
+	# Proxy Frontend
+	handle {
+		reverse_proxy client:80
+	}
+}

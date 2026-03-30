@@ -1,0 +1,1059 @@
+/* ============================================
+   CalApp01 — iOS-first дизайн-система
+   ============================================
+   Визуальный дизайн ориентирован на iOS / Apple HIG.
+   Все элементы — шрифты, blur, анимации, скругления, цвета —
+   максимально приближены к нативному iOS-приложению.
+   Даже на Android должно «веять» iOS.
+*/
+
+/* ============================================
+   CSS Variables — iOS Design Tokens
+   ============================================ */
+:root {
+  /* --- iOS System Colors (Dark Mode) --- */
+  --ios-blue: #0A84FF;
+  --ios-green: #30D158;
+  --ios-red: #FF453A;
+  --ios-orange: #FF9F0A;
+  --ios-yellow: #FFD60A;
+  --ios-purple: #BF5AF2;
+  --ios-pink: #FF375F;
+  --ios-teal: #64D2FF;
+  --ios-indigo: #5E5CE6;
+
+  /* --- Background layers (iOS Dark) --- */
+  --bg-primary: #000000;
+  --bg-secondary: #1C1C1E;
+  --bg-tertiary: #2C2C2E;
+  --bg-elevated: #1C1C1E;
+  --bg-grouped: #000000;
+  --bg-grouped-secondary: #1C1C1E;
+
+  /* --- Text (iOS Dark) --- */
+  --text-primary: #FFFFFF;
+  --text-secondary: #8E8E93;
+  --text-tertiary: #48484A;
+  --text-quaternary: #3A3A3C;
+
+  /* --- Separator (iOS) --- */
+  --separator: rgba(84, 84, 88, 0.65);
+  --separator-opaque: #38383A;
+
+  /* --- Fill (iOS) --- */
+  --fill-primary: rgba(120, 120, 128, 0.36);
+  --fill-secondary: rgba(120, 120, 128, 0.32);
+  --fill-tertiary: rgba(120, 120, 128, 0.24);
+  --fill-quaternary: rgba(120, 120, 128, 0.18);
+
+  /* --- iOS System Blue variants --- */
+  --accent: var(--ios-blue);
+  --accent-active: #0070E0;
+  --accent-bg: rgba(10, 132, 255, 0.12);
+
+  /* --- Slot colors --- */
+  --slot-open: rgba(48, 209, 88, 0.15);
+  --slot-open-text: var(--ios-green);
+  --slot-closed: var(--bg-tertiary);
+  --slot-closed-text: var(--text-tertiary);
+  --slot-booked: rgba(191, 90, 242, 0.15);
+  --slot-booked-text: var(--ios-purple);
+  --slot-selected: var(--ios-blue);
+  --slot-selected-text: #FFFFFF;
+  --slot-my-booking: var(--ios-blue);
+
+  /* --- Typography — SF Pro via system font stack --- */
+  --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Helvetica Neue', 'Segoe UI', Roboto, system-ui, sans-serif;
+  
+  --font-size-caption2: 0.6875rem;   /* 11px — iOS Caption 2 */
+  --font-size-caption1: 0.75rem;     /* 12px — iOS Caption 1 */
+  --font-size-footnote: 0.8125rem;   /* 13px — iOS Footnote */
+  --font-size-subheadline: 0.9375rem; /* 15px — iOS Subheadline */
+  --font-size-callout: 1rem;          /* 16px — iOS Callout */
+  --font-size-body: 1.0625rem;        /* 17px — iOS Body (дефолт) */
+  --font-size-headline: 1.0625rem;    /* 17px semibold — iOS Headline */
+  --font-size-title3: 1.25rem;        /* 20px — iOS Title 3 */
+  --font-size-title2: 1.375rem;       /* 22px — iOS Title 2 */
+  --font-size-title1: 1.75rem;        /* 28px — iOS Title 1 */
+  --font-size-large-title: 2.125rem;  /* 34px — iOS Large Title */
+
+  /* --- Скругления (iOS) --- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-card: 13px;         /* iOS grouped card radius */
+  --radius-full: 9999px;
+
+  /* --- Spacing --- */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 20px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 44px;
+  --ios-inset: 16px;           /* iOS standard inset */
+
+  /* --- iOS Animations (cubic-bezier пружины) --- */
+  --ease-ios: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-ios-spring: cubic-bezier(0.28, 0.84, 0.42, 1);
+  --ease-ios-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 200ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+
+  /* --- Safe area (iPhone notch / Dynamic Island) --- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* ============================================
+   Reset & Base — iOS feel
+   ============================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: 1.47;
+  letter-spacing: -0.022em;   /* iOS default letter-spacing */
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* iOS rubber-band scroll feel (enabled on scrollable children) */
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================
+   Typography — iOS style
+   ============================================ */
+h1, .large-title {
+  font-size: var(--font-size-large-title);
+  font-weight: 700;
+  letter-spacing: 0.011em;
+  line-height: 1.2;
+}
+
+h2, .title1 {
+  font-size: var(--font-size-title1);
+  font-weight: 700;
+  letter-spacing: 0.013em;
+  line-height: 1.25;
+}
+
+h3, .title2 {
+  font-size: var(--font-size-title2);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+h4, .title3 {
+  font-size: var(--font-size-title3);
+  font-weight: 600;
+  letter-spacing: 0.012em;
+}
+
+.headline {
+  font-size: var(--font-size-headline);
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+
+.body { font-size: var(--font-size-body); }
+.callout { font-size: var(--font-size-callout); }
+.subheadline { font-size: var(--font-size-subheadline); }
+.footnote { font-size: var(--font-size-footnote); }
+.caption1 { font-size: var(--font-size-caption1); }
+.caption2 { font-size: var(--font-size-caption2); }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  -webkit-touch-callout: none;
+}
+
+/* ============================================
+   iOS Navigation Bar (sticky, blur)
+   ============================================ */
+.ios-nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: calc(var(--safe-top) + 8px) var(--ios-inset) 8px;
+  background: rgba(28, 28, 30, 0.72);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--separator);
+}
+
+.ios-nav-bar__title {
+  font-size: var(--font-size-headline);
+  font-weight: 600;
+  text-align: center;
+}
+
+.ios-nav-bar__large-title {
+  font-size: var(--font-size-large-title);
+  font-weight: 700;
+  padding: var(--spacing-sm) var(--ios-inset) var(--spacing-md);
+}
+
+/* ============================================
+   Buttons — iOS style
+   ============================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: transform var(--duration-fast) var(--ease-ios),
+              opacity var(--duration-fast) var(--ease-ios);
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+  letter-spacing: -0.022em;
+}
+
+/* iOS tap feedback — scale down */
+.btn:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: var(--fill-tertiary);
+  color: var(--accent);
+}
+
+.btn-destructive {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--ios-red);
+}
+
+.btn-text {
+  background: transparent;
+  color: var(--accent);
+  padding: 8px 12px;
+}
+.btn-text:active {
+  opacity: 0.4;
+  transform: none;
+}
+
+.btn-sm { padding: 8px 16px; font-size: var(--font-size-subheadline); }
+.btn-lg { padding: 16px 24px; font-size: var(--font-size-title3); border-radius: var(--radius-lg); }
+.btn-block { width: 100%; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn:disabled:active { transform: none; }
+
+/* iOS Pill / Capsule Button */
+.btn-pill {
+  border-radius: var(--radius-full);
+  padding: 8px 20px;
+  background: var(--fill-tertiary);
+  color: var(--accent);
+  font-size: var(--font-size-subheadline);
+  font-weight: 600;
+}
+
+/* ============================================
+   iOS Segmented Control
+   ============================================ */
+.segmented-control {
+  display: flex;
+  background: var(--fill-quaternary);
+  border-radius: 9px;
+  padding: 2px;
+  position: relative;
+}
+
+.segmented-control__item {
+  flex: 1;
+  padding: 7px 12px;
+  text-align: center;
+  font-size: var(--font-size-footnote);
+  font-weight: 600;
+  color: var(--text-primary);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-ios);
+  position: relative;
+  z-index: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+}
+
+.segmented-control__item.active {
+  background: var(--bg-tertiary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================
+   Inputs — iOS style
+   ============================================ */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-group label {
+  font-size: var(--font-size-footnote);
+  color: var(--text-secondary);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding-left: 4px;
+}
+
+.input {
+  width: 100%;
+  padding: 11px 16px;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  letter-spacing: -0.022em;
+  outline: none;
+  transition: box-shadow var(--duration-fast) var(--ease-ios);
+}
+
+.input:focus {
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.3);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* iOS Grouped Inset Input (как в Настройках) */
+.ios-input-group {
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.ios-input-row {
+  display: flex;
+  align-items: center;
+  padding: 11px 16px;
+  gap: 12px;
+}
+
+.ios-input-row + .ios-input-row {
+  border-top: 0.5px solid var(--separator);
+}
+
+.ios-input-row label {
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+  font-weight: 400;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.ios-input-row input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  letter-spacing: -0.022em;
+  outline: none;
+  text-align: right;
+}
+
+.ios-input-row input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   iOS Toggle Switch
+   ============================================ */
+.ios-toggle {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  background: var(--fill-primary);
+  border-radius: 15.5px;
+  cursor: pointer;
+  transition: background-color var(--duration-base) var(--ease-ios);
+  flex-shrink: 0;
+  border: none;
+}
+
+.ios-toggle.active {
+  background: var(--ios-green);
+}
+
+.ios-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform var(--duration-base) var(--ease-ios-spring);
+}
+
+.ios-toggle.active::after {
+  transform: translateX(20px);
+}
+
+/* ============================================
+   Cards — iOS Grouped Inset style
+   ============================================ */
+.card {
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-card);
+  margin: 0 var(--ios-inset);
+}
+
+.card-inset {
+  background: var(--bg-grouped-secondary);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  min-height: 44px;       /* iOS minimal tap target */
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.card-row:active {
+  background: var(--fill-quaternary);
+}
+
+.card-row + .card-row {
+  border-top: 0.5px solid var(--separator);
+  margin-left: 16px;  /* iOS inset separator */
+}
+
+.card-row__label {
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+}
+
+.card-row__value {
+  font-size: var(--font-size-body);
+  color: var(--text-secondary);
+}
+
+.card-row__chevron::after {
+  content: '›';
+  color: var(--text-quaternary);
+  font-size: 1.25rem;
+  font-weight: 300;
+  margin-left: 6px;
+}
+
+/* Section Header (как в iOS Настройках) */
+.section-header {
+  font-size: var(--font-size-footnote);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: var(--spacing-xl) var(--ios-inset) var(--spacing-sm) calc(var(--ios-inset) + 4px);
+}
+
+.section-footer {
+  font-size: var(--font-size-footnote);
+  color: var(--text-secondary);
+  padding: var(--spacing-sm) calc(var(--ios-inset) + 4px) var(--spacing-md);
+  line-height: 1.35;
+}
+
+/* ============================================
+   Layout
+   ============================================ */
+.page {
+  flex: 1;
+  padding: var(--spacing-md) 0;
+  padding-top: calc(var(--safe-top) + var(--spacing-md));
+  padding-bottom: calc(var(--safe-bottom) + var(--spacing-md) + 20px);
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .page { max-width: 700px; }
+}
+
+/* ============================================
+   Loading — iOS spinner
+   ============================================ */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  gap: var(--spacing-md);
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--fill-tertiary);
+  border-top-color: var(--text-secondary);
+  border-radius: 50%;
+  animation: ios-spin 0.75s linear infinite;
+}
+
+@keyframes ios-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   iOS Action Sheet (Bottom Sheet)
+   ============================================ */
+.bottom-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 900;
+  animation: ios-fade-in var(--duration-base) var(--ease-ios);
+}
+
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  padding: var(--spacing-md) var(--ios-inset);
+  padding-bottom: calc(var(--safe-bottom) + var(--spacing-lg));
+  z-index: 950;
+  animation: ios-slide-up var(--duration-base) var(--ease-ios-spring);
+  max-height: 85vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS Handle indicator */
+.bottom-sheet-handle {
+  width: 36px;
+  height: 5px;
+  background: var(--fill-secondary);
+  border-radius: var(--radius-full);
+  margin: 0 auto var(--spacing-md);
+}
+
+/* iOS Action Sheet Button Group */
+.action-sheet-group {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  margin-bottom: var(--spacing-sm);
+}
+
+.action-sheet-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  font-family: var(--font-family);
+  font-size: var(--font-size-title3);
+  color: var(--accent);
+  cursor: pointer;
+  letter-spacing: -0.022em;
+}
+
+.action-sheet-btn:active {
+  background: var(--fill-quaternary);
+}
+
+.action-sheet-btn + .action-sheet-btn {
+  border-top: 0.5px solid var(--separator);
+}
+
+.action-sheet-btn--destructive {
+  color: var(--ios-red);
+}
+
+.action-sheet-btn--cancel {
+  font-weight: 600;
+}
+
+@keyframes ios-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes ios-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ios-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* ============================================
+   Toast / iOS-style HUD banner
+   ============================================ */
+.toast-container {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  left: var(--spacing-sm);
+  right: var(--spacing-sm);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  pointer-events: none;
+}
+
+.toast {
+  background: rgba(44, 44, 46, 0.88);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-radius: var(--radius-card);
+  padding: 14px var(--spacing-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: ios-toast-in 0.4s var(--ease-ios-spring);
+  pointer-events: auto;
+  font-size: var(--font-size-subheadline);
+  font-weight: 500;
+}
+
+.toast--success { border-left: 3px solid var(--ios-green); }
+.toast--error { border-left: 3px solid var(--ios-red); }
+.toast--warning { border-left: 3px solid var(--ios-orange); }
+.toast--info { border-left: 3px solid var(--ios-blue); }
+
+@keyframes ios-toast-in {
+  from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ============================================
+   Booking Bar (Fixed Bottom)
+   ============================================ */
+.booking-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(28, 28, 30, 0.85);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid var(--separator);
+  padding: 12px var(--ios-inset);
+  padding-bottom: calc(var(--safe-bottom) + 12px);
+  z-index: 800;
+  animation: ios-slide-up var(--duration-base) var(--ease-ios-spring);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+/* ============================================
+   Upcoming Booking Banner
+   ============================================ */
+.upcoming-banner {
+  background: var(--accent-bg);
+  border-radius: var(--radius-card);
+  padding: 12px var(--ios-inset);
+  margin: 0 var(--ios-inset) var(--spacing-md);
+  font-size: var(--font-size-subheadline);
+}
+
+.upcoming-banner strong {
+  color: var(--accent);
+}
+
+/* ============================================
+   Calendar Grid — iOS clean style
+   ============================================ */
+.calendar-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--separator-opaque);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  margin: 0 var(--ios-inset);
+}
+
+.calendar-header {
+  display: grid;
+  gap: 1px;
+  margin: 0 var(--ios-inset) var(--spacing-xs);
+}
+
+.calendar-header-cell {
+  padding: var(--spacing-sm) var(--spacing-xs);
+  text-align: center;
+  font-size: var(--font-size-footnote);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calendar-header-cell.today {
+  color: var(--accent);
+}
+
+.calendar-header-cell.today .day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.calendar-time-label {
+  font-size: var(--font-size-caption2);
+  color: var(--text-tertiary);
+  padding: var(--spacing-xs) 2px;
+  text-align: right;
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Slot cells --- */
+.slot-cell {
+  padding: 6px 4px;
+  text-align: center;
+  font-size: var(--font-size-caption1);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  transition: transform var(--duration-fast) var(--ease-ios),
+              background var(--duration-fast) var(--ease-ios);
+  position: relative;
+}
+
+/* iOS haptic-like tap */
+.slot-cell:active {
+  transform: scale(0.95);
+}
+
+.slot-cell--closed {
+  background: var(--slot-closed);
+  color: var(--slot-closed-text);
+  cursor: default;
+}
+.slot-cell--closed:active { transform: none; }
+
+.slot-cell--open {
+  background: var(--slot-open);
+  color: var(--slot-open-text);
+}
+
+.slot-cell--booked {
+  background: var(--slot-booked);
+  color: var(--slot-booked-text);
+  cursor: default;
+}
+
+.slot-cell--selected {
+  background: var(--slot-selected);
+  color: var(--slot-selected-text);
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(10, 132, 255, 0.3);
+}
+
+.slot-cell--my-booking {
+  background: var(--accent);
+  color: #fff;
+}
+
+.slot-cell--specialist {
+  cursor: pointer;
+}
+
+.slot-cell--paid::after {
+  content: '₽';
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: var(--font-size-caption2);
+  color: var(--ios-green);
+  font-weight: 700;
+}
+
+/* ============================================
+   Week Navigator
+   ============================================ */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--ios-inset);
+  margin-bottom: var(--spacing-xs);
+}
+
+.week-nav-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: var(--font-size-title3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) var(--ease-ios);
+}
+
+.week-nav-btn:active {
+  opacity: 0.4;
+}
+
+.week-nav-btn:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+.week-nav-title {
+  font-size: var(--font-size-headline);
+  font-weight: 600;
+}
+
+/* ============================================
+   Calendar Selector (horizontal scroll)
+   ============================================ */
+.calendar-selector {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  padding: var(--spacing-sm) var(--ios-inset);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.calendar-selector::-webkit-scrollbar { display: none; }
+
+.calendar-selector-item {
+  flex: 0 0 auto;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--fill-quaternary);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-subheadline);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-ios);
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.calendar-selector-item:active {
+  transform: scale(0.95);
+}
+
+.calendar-selector-item.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ============================================
+   Badge / Chip — iOS style
+   ============================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption2);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.badge--success { background: rgba(48, 209, 88, 0.15); color: var(--ios-green); }
+.badge--warning { background: rgba(255, 159, 10, 0.15); color: var(--ios-orange); }
+.badge--danger { background: rgba(255, 69, 58, 0.15); color: var(--ios-red); }
+.badge--accent { background: var(--accent-bg); color: var(--accent); }
+
+/* iOS-style red notification dot */
+.notification-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--ios-red);
+  border-radius: 50%;
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  border: 2px solid var(--bg-secondary);
+}
+
+/* ============================================
+   Specialist Menu (action sheet content)
+   ============================================ */
+.specialist-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.specialist-menu__info {
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-card);
+}
+
+.specialist-menu__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* ============================================
+   iOS-style Modal (centered)
+   ============================================ */
+.ios-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 900;
+  animation: ios-fade-in var(--duration-base) var(--ease-ios);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+.ios-modal {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  width: 100%;
+  max-width: 300px;
+  text-align: center;
+  animation: ios-modal-in 0.35s var(--ease-ios-spring);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.ios-modal__title {
+  font-size: var(--font-size-headline);
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+}
+
+.ios-modal__message {
+  font-size: var(--font-size-footnote);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+  line-height: 1.4;
+}
+
+.ios-modal__actions {
+  border-top: 0.5px solid var(--separator);
+  margin: 0 calc(var(--spacing-lg) * -1) calc(var(--spacing-lg) * -1);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  overflow: hidden;
+}
+
+.ios-modal__btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.ios-modal__btn:active { background: var(--fill-quaternary); }
+.ios-modal__btn + .ios-modal__btn { border-top: 0.5px solid var(--separator); }
+.ios-modal__btn--destructive { color: var(--ios-red); }
+.ios-modal__btn--bold { font-weight: 600; }
+
+@keyframes ios-modal-in {
+  from { transform: scale(1.15); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (min-width: 768px) {
+  .slot-cell {
+    min-height: 48px;
+    font-size: var(--font-size-footnote);
+  }
+  
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--fill-tertiary); border-radius: var(--radius-full); }
+}
+
+/* ============================================
+   Selection / Highlight — iOS blue
+   ============================================ */
+::selection {
+  background: rgba(10, 132, 255, 0.3);
+}
