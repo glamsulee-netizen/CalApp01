@@ -28,6 +28,8 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth';
 import { requirePlatformRole } from '../middleware/roles';
 import { validate } from '../middleware/validate';
+import { getPlatformStats, generatePromoCodes } from '../services/promo.service';
+import { prisma } from '../index';
 
 export const adminRouter = Router();
 
@@ -62,9 +64,9 @@ const smtpProviderSchema = z.object({
 
 // GET /api/admin/stats
 adminRouter.get('/stats', async (req, res, next) => {
-  // TODO: Реализовать (см. promo.service.ts)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const stats = await getPlatformStats();
+    res.json(stats);
   } catch (error) {
     next(error);
   }
@@ -92,9 +94,10 @@ adminRouter.patch('/users/:userId', validate(updateUserSchema), async (req, res,
 
 // POST /api/admin/promo/generate
 adminRouter.post('/promo/generate', validate(generatePromoSchema), async (req, res, next) => {
-  // TODO: Реализовать генерацию промокодов (см. promo.service.ts → generatePromoCodes)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const { type, count } = req.body;
+    const codes = await generatePromoCodes(type, count);
+    res.status(201).json({ codes });
   } catch (error) {
     next(error);
   }
@@ -102,9 +105,12 @@ adminRouter.post('/promo/generate', validate(generatePromoSchema), async (req, r
 
 // GET /api/admin/promo
 adminRouter.get('/promo', async (req, res, next) => {
-  // TODO: Реализовать список промокодов с фильтрацией
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const promos = await prisma.promoCode.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 200, // Limit to recent 200 to prevent huge payloads
+    });
+    res.json(promos);
   } catch (error) {
     next(error);
   }

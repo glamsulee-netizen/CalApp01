@@ -10,12 +10,22 @@
 // 4. Настройки: шаблон календаря, регистрация open/close
 // 5. SMTP: управление провайдерами (добавить/редактировать/удалить)
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAdminStore } from '../store/adminStore';
 
 type AdminTab = 'stats' | 'users' | 'promo' | 'settings' | 'smtp';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
+  const { stats, promos, isLoading, loadStats, loadPromos, generatePromos } = useAdminStore();
+
+  const [promoType, setPromoType] = useState<'SUBSCRIPTION_MONTH' | 'SUBSCRIPTION_YEAR'>('SUBSCRIPTION_MONTH');
+  const [promoCount, setPromoCount] = useState<number>(5);
+
+  useEffect(() => {
+    if (activeTab === 'stats') loadStats();
+    if (activeTab === 'promo') loadPromos();
+  }, [activeTab]);
 
   const tabs: { key: AdminTab; label: string, icon: string }[] = [
     { key: 'stats', label: 'Обзор', icon: '📊' },
@@ -85,9 +95,28 @@ export default function AdminDashboard() {
         {activeTab === 'stats' && (
           <div className="card">
             <h3 style={{ margin: '0 0 16px', fontSize: 'var(--font-size-headline)' }}>Статистика платформы</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-subheadline)' }}>
-              Здесь будут выводиться основные метрики (кол-во пользователей, активных календарей и т.д.)
-            </p>
+            {isLoading && !stats ? (
+              <p style={{ color: 'var(--text-secondary)' }}>Загрузка...</p>
+            ) : stats ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                <div style={{ background: 'var(--system-gray6)', padding: 16, borderRadius: 12 }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--ios-blue)' }}>{stats.totalUsers}</div>
+                  <div style={{ fontSize: 'var(--font-size-caption1)', color: 'var(--text-secondary)' }}>Пользователей</div>
+                </div>
+                <div style={{ background: 'var(--system-gray6)', padding: 16, borderRadius: 12 }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--ios-indigo)' }}>{stats.totalSpecialists}</div>
+                  <div style={{ fontSize: 'var(--font-size-caption1)', color: 'var(--text-secondary)' }}>Специалистов</div>
+                </div>
+                <div style={{ background: 'var(--system-gray6)', padding: 16, borderRadius: 12 }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--ios-purple)' }}>{stats.activeCalendars}</div>
+                  <div style={{ fontSize: 'var(--font-size-caption1)', color: 'var(--text-secondary)' }}>Календарей</div>
+                </div>
+                <div style={{ background: 'var(--system-gray6)', padding: 16, borderRadius: 12 }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--ios-green)' }}>{stats.todayBookings}</div>
+                  <div style={{ fontSize: 'var(--font-size-caption1)', color: 'var(--text-secondary)' }}>Броней за сегодня</div>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
         
@@ -95,17 +124,93 @@ export default function AdminDashboard() {
           <div className="card">
             <h3 style={{ margin: '0 0 16px', fontSize: 'var(--font-size-headline)' }}>Управление пользователями</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-subheadline)' }}>
-              Список пользователей с возможностью сброса пароля и выдачи ролей.
+              (В разработке) Список пользователей с возможностью выдачи ролей.
             </p>
           </div>
         )}
         
         {activeTab === 'promo' && (
           <div className="card">
-             <h3 style={{ margin: '0 0 16px', fontSize: 'var(--font-size-headline)' }}>Генерация промокодов</h3>
-             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-subheadline)' }}>
-               Создание кодов для активации подписки специалиста.
-             </p>
+            <h3 style={{ margin: '0 0 16px', fontSize: 'var(--font-size-headline)' }}>Генерация промокодов</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-subheadline)', marginBottom: 20 }}>
+               Создание кодов-билетов для подписки специалиста. При активации этих кодов пользователь получит возможность создавать свой календарь.
+            </p>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+              <select 
+                className="form-control" 
+                style={{ flex: 2, minWidth: 200 }}
+                value={promoType} 
+                onChange={e => setPromoType(e.target.value as any)}
+              >
+                <option value="SUBSCRIPTION_MONTH">Подписка 30 дней</option>
+                <option value="SUBSCRIPTION_YEAR">Подписка 365 дней</option>
+              </select>
+              <input 
+                type="number" 
+                className="form-control" 
+                style={{ flex: 1, minWidth: 100 }}
+                value={promoCount} 
+                onChange={e => setPromoCount(Number(e.target.value))} 
+                min={1} max={100} 
+              />
+              <button 
+                className="btn btn-primary" 
+                onClick={() => generatePromos(promoType, promoCount)}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Генерация...' : 'Сгенерировать'}
+              </button>
+            </div>
+
+            <h4 style={{ margin: '24px 0 12px' }}>Сгенерированные промокоды</h4>
+            <div style={{ overflowX: 'auto', margin: '0 -16px', padding: '0 16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-subheadline)' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', textAlign: 'left' }}>
+                    <th style={{ padding: '8px 0', minWidth: 120 }}>Код</th>
+                    <th style={{ padding: '8px 0', minWidth: 100 }}>Тип</th>
+                    <th style={{ padding: '8px 0', minWidth: 80 }}>Статус</th>
+                    <th style={{ padding: '8px 0', textAlign: 'right' }}>Копировать</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promos.length === 0 && (
+                    <tr><td colSpan={4} style={{ padding: 16, textAlign: 'center', color: 'var(--text-secondary)' }}>Кодов пока нет</td></tr>
+                  )}
+                  {promos.map(promo => (
+                    <tr key={promo.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 0', fontFamily: 'monospace', fontSize: 16, fontWeight: 700 }}>
+                        {promo.code}
+                      </td>
+                      <td style={{ padding: '12px 0', color: 'var(--text-secondary)' }}>
+                        {promo.type === 'SUBSCRIPTION_MONTH' ? '30 Дней' : 'Год'}
+                      </td>
+                      <td style={{ padding: '12px 0' }}>
+                        {promo.isUsed ? (
+                          <span style={{ color: 'var(--ios-red)', fontSize: 13, fontWeight: 600, background: 'rgba(255,59,48,0.1)', padding: '4px 8px', borderRadius: 6 }}>ИСПОЛЬЗОВАН</span>
+                        ) : (
+                          <span style={{ color: 'var(--ios-green)', fontSize: 13, fontWeight: 600, background: 'rgba(52,199,89,0.1)', padding: '4px 8px', borderRadius: 6 }}>ДОСТУПЕН</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 0', textAlign: 'right' }}>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(promo.code);
+                            alert('Скопировано: ' + promo.code);
+                          }}
+                          style={{
+                            background: 'transparent', border: '1px solid var(--ios-blue)', color: 'var(--ios-blue)',
+                            padding: '4px 12px', borderRadius: 16, fontSize: 13, cursor: 'pointer'
+                          }}
+                        >
+                          Копировать
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
         
