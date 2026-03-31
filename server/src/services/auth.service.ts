@@ -75,8 +75,8 @@ export function generateTokens(payload: JwtPayload): { accessToken: string; refr
  * 5. Вернуть токены + данные пользователя
  */
 export async function registerUser(email: string, password: string, name?: string): Promise<AuthResponse> {
-  const settings = await prisma.platformSettings.findFirst();
-  if (settings && !settings.registrationOpen) {
+  const settings = await prisma.platformSettings.findFirst({ where: { key: 'registration_open' } });
+  if (settings && settings.value === 'false') {
     throw new Error('Регистрация закрыта администратором');
   }
 
@@ -102,7 +102,7 @@ export async function registerUser(email: string, password: string, name?: strin
   const tokens = generateTokens(payload);
   
   const ttl = 30 * 24 * 60 * 60; // 30 days
-  await redis.setex(`${REFRESH_TOKEN_PREFIX}${user.id}`, ttl, tokens.refreshToken);
+  await redis.set(`${REFRESH_TOKEN_PREFIX}${user.id}`, tokens.refreshToken, { EX: ttl });
 
   const { password: _, ...userWithoutPassword } = user;
   return { user: userWithoutPassword as any, ...tokens };
@@ -132,7 +132,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   const tokens = generateTokens(payload);
   
   const ttl = 30 * 24 * 60 * 60; 
-  await redis.setex(`${REFRESH_TOKEN_PREFIX}${user.id}`, ttl, tokens.refreshToken);
+  await redis.set(`${REFRESH_TOKEN_PREFIX}${user.id}`, tokens.refreshToken, { EX: ttl });
 
   const { password: _, ...userWithoutPassword } = user;
   return { user: userWithoutPassword as any, ...tokens };
@@ -161,7 +161,7 @@ export async function refreshTokens(refreshToken: string): Promise<{ accessToken
     const tokens = generateTokens(payload);
 
     const ttl = 30 * 24 * 60 * 60;
-    await redis.setex(`${REFRESH_TOKEN_PREFIX}${decoded.id}`, ttl, tokens.refreshToken);
+    await redis.set(`${REFRESH_TOKEN_PREFIX}${decoded.id}`, tokens.refreshToken, { EX: ttl });
 
     return tokens;
   } catch (error) {

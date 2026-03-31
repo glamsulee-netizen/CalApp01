@@ -41,6 +41,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate';
 import { requireAuth } from '../middleware/auth';
+import { registerUser, loginUser, refreshTokens, logoutUser, changePassword } from '../services/auth.service';
 
 export const authRouter = Router();
 
@@ -66,50 +67,108 @@ const changePasswordSchema = z.object({
 
 // POST /api/auth/register
 authRouter.post('/register', validate(registerSchema), async (req, res, next) => {
-  // TODO: Реализовать регистрацию (см. auth.service.ts → registerUser)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const { email, password, name } = req.body;
+    const result = await registerUser(email, password, name);
+
+    // Refresh token в httpOnly cookie
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
+      path: '/',
+    });
+
+    res.status(201).json({
+      accessToken: result.accessToken,
+      user: result.user,
+    });
+  } catch (error: any) {
+    if (error.message.includes('уже существует') || error.message.includes('закрыта')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // POST /api/auth/login
 authRouter.post('/login', validate(loginSchema), async (req, res, next) => {
-  // TODO: Реализовать вход (см. auth.service.ts → loginUser)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const { email, password } = req.body;
+    const result = await loginUser(email, password);
+
+    // Refresh token в httpOnly cookie
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.json({
+      accessToken: result.accessToken,
+      user: result.user,
+    });
+  } catch (error: any) {
+    if (error.message.includes('Неверный')) {
+      res.status(401).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // POST /api/auth/refresh
 authRouter.post('/refresh', async (req, res, next) => {
-  // TODO: Реализовать обновление токена (см. auth.service.ts → refreshTokens)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
-    next(error);
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      res.status(401).json({ error: 'Refresh token отсутствует' });
+      return;
+    }
+    const tokens = await refreshTokens(token);
+
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.json({ accessToken: tokens.accessToken });
+  } catch (error: any) {
+    res.status(401).json({ error: error.message });
   }
 });
 
 // POST /api/auth/logout
-authRouter.post('/logout', requireAuth, async (req, res, next) => {
-  // TODO: Реализовать выход (см. auth.service.ts → logoutUser)
+authRouter.post('/logout', requireAuth, async (req: any, res, next) => {
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    await logoutUser(req.user.id);
+    res.clearCookie('refreshToken', { path: '/' });
+    res.json({ message: 'Выход выполнен' });
   } catch (error) {
     next(error);
   }
 });
 
 // POST /api/auth/change-password
-authRouter.post('/change-password', requireAuth, validate(changePasswordSchema), async (req, res, next) => {
-  // TODO: Реализовать смену пароля (см. auth.service.ts → changePassword)
+authRouter.post('/change-password', requireAuth, validate(changePasswordSchema), async (req: any, res, next) => {
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const { oldPassword, newPassword } = req.body;
+    await changePassword(req.user.id, oldPassword, newPassword);
+    res.clearCookie('refreshToken', { path: '/' });
+    res.json({ message: 'Пароль изменён. Войдите заново.' });
+  } catch (error: any) {
+    if (error.message.includes('Неверный') || error.message.includes('Требуется')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
+

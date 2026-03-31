@@ -16,7 +16,7 @@ export { PlatformRole, CalendarRole, BookingStatus };
 
 /** Payload JWT токена */
 export interface JwtPayload {
-  userId: number;
+  id: number;
   email: string;
   role: PlatformRole;
 }
@@ -42,6 +42,7 @@ export interface LoginBody {
 /** Ответ на успешную авторизацию */
 export interface AuthResponse {
   accessToken: string;
+  refreshToken: string;
   user: {
     id: number;
     email: string;

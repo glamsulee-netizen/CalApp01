@@ -108,7 +108,11 @@ async function main() {
     console.log('[Prisma] Подключено к БД');
 
     // Seed admin при первом запуске
-    await seedAdmin();
+    try {
+      await seedAdmin();
+    } catch (seedError) {
+      console.error('[Seed] Ошибка при создании admin (возможно, миграции не применены):', seedError);
+    }
 
     // WebSocket
     setupSocketHandlers(io);
@@ -116,9 +120,9 @@ async function main() {
     // Cron-задачи
     startCronJobs();
 
-    // Запуск HTTP сервера
-    httpServer.listen(config.serverPort, () => {
-      console.log(`[Server] Запущен на порту ${config.serverPort}`);
+    // Запуск HTTP сервера (0.0.0.0 обязательно для Docker)
+    httpServer.listen(config.serverPort, '0.0.0.0', () => {
+      console.log(`[Server] Запущен на 0.0.0.0:${config.serverPort}`);
       console.log(`[Server] Режим: ${config.nodeEnv}`);
     });
   } catch (error) {
