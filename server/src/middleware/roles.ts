@@ -71,7 +71,7 @@ export function requireCalendarRole(...roles: CalendarRole[]) {
       return;
     }
 
-    if (calendar.ownerId === req.user.userId) {
+    if (calendar.ownerId === req.user.id) {
       next();
       return;
     }
@@ -81,7 +81,7 @@ export function requireCalendarRole(...roles: CalendarRole[]) {
       where: {
         calendarId_userId: {
           calendarId,
-          userId: req.user.userId,
+          userId: req.user.id,
         },
       },
     });
