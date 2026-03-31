@@ -146,7 +146,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
  * 3. Сгенерировать новую пару (token rotation)
  * 4. Обновить refresh в Redis
  */
-export async function refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+export async function refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string; user: any }> {
   try {
     const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret) as JwtPayload;
     if (!decoded.id) throw new Error('Неверный токен');
@@ -157,13 +157,18 @@ export async function refreshTokens(refreshToken: string): Promise<{ accessToken
       throw new Error('Токен недействителен или устарел');
     }
 
-    const payload: JwtPayload = { id: decoded.id, email: decoded.email, role: decoded.role };
+    // Fetch fresh user data from DB
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user) throw new Error('Пользователь не найден');
+
+    const payload: JwtPayload = { id: user.id, email: user.email, role: user.role };
     const tokens = generateTokens(payload);
 
     const ttl = 30 * 24 * 60 * 60;
-    await redis.set(`${REFRESH_TOKEN_PREFIX}${decoded.id}`, tokens.refreshToken, { EX: ttl });
+    await redis.set(`${REFRESH_TOKEN_PREFIX}${user.id}`, tokens.refreshToken, { EX: ttl });
 
-    return tokens;
+    const { password: _, ...userWithoutPassword } = user;
+    return { ...tokens, user: userWithoutPassword };
   } catch (error) {
     throw new Error('Невалидный или просроченный refresh token');
   }

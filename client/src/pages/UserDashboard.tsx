@@ -11,6 +11,7 @@
 // 6. AdminGuard: если mustChangePassword — показать ChangePasswordForm
 
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useCalendarStore } from '../store/calendarStore';
 import WeekGrid from '../components/Calendar/WeekGrid';
@@ -62,11 +63,24 @@ export default function UserDashboard() {
       <div style={{
         padding: 'max(env(safe-area-inset-top), 20px) var(--ios-inset) 12px',
         background: 'var(--bg-primary)',
-        marginBottom: 16
+        marginBottom: 16,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
         <h1 style={{ fontSize: 'var(--font-size-title1)', fontWeight: 700, margin: 0 }}>
           Привет, {user?.name || user?.email?.split('@')[0]}
         </h1>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {user?.role === 'ADMIN' && (
+            <Link to="/admin" className="btn btn-sm" style={{ background: 'var(--ios-purple)', color: '#fff', borderRadius: 20 }}>
+              👑 Админка
+            </Link>
+          )}
+          <Link to="/settings" style={{ fontSize: 24, textDecoration: 'none' }}>
+            ⚙️
+          </Link>
+        </div>
       </div>
 
       <div style={{ padding: '0 var(--ios-inset)' }}>

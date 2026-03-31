@@ -11,6 +11,7 @@
 // 5. SMTP: управление провайдерами (добавить/редактировать/удалить)
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 
 type AdminTab = 'stats' | 'users' | 'promo' | 'settings' | 'smtp';
@@ -45,7 +46,18 @@ export default function AdminDashboard() {
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '0.5px solid var(--border-color)',
+        display: 'flex', alignItems: 'center'
       }}>
+        <Link to="/" style={{ 
+          marginRight: 16, 
+          fontSize: 24, 
+          textDecoration: 'none', 
+          width: 40, height: 40, 
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--card-bg)', borderRadius: '50%' 
+        }}>
+          ⬅️
+        </Link>
         <h1 style={{ fontSize: 'var(--font-size-title1)', fontWeight: 700, margin: 0 }}>
           Админ-панель
         </h1>
