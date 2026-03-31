@@ -71,6 +71,28 @@ export async function activateCalendar(userId: number, code: string) {
 }
 
 /**
+ * Получить календари пользователя (как владельца)
+ */
+export async function getMyCalendars(userId: number) {
+  return await prisma.calendar.findMany({
+    where: { ownerId: userId },
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
+/**
+ * Получить подписки пользователя
+ */
+export async function getSubscriptions(userId: number) {
+  const members = await prisma.calendarMember.findMany({
+    where: { userId },
+    include: { calendar: true },
+    orderBy: { createdAt: 'desc' }
+  });
+  return members.map(m => m.calendar);
+}
+
+/**
  * Получить слоты календаря за конкретную неделю
  * 
  * AGENT_INSTRUCTION:

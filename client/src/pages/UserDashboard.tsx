@@ -16,6 +16,9 @@ import { useCalendarStore } from '../store/calendarStore';
 import WeekGrid from '../components/Calendar/WeekGrid';
 import WeekNavigator from '../components/Calendar/WeekNavigator';
 import BookingBar from '../components/Calendar/BookingBar';
+import ChangePasswordModal from '../components/UI/ChangePasswordModal';
+import SubscribeModal from '../components/UI/SubscribeModal';
+import PromoModal from '../components/UI/PromoModal';
 
 export default function UserDashboard() {
   const { user } = useAuthStore();
@@ -33,6 +36,8 @@ export default function UserDashboard() {
   } = useCalendarStore();
 
   const [passwordFormVisible, setPasswordFormVisible] = useState(user?.mustChangePassword || false);
+  const [subscribeModalVisible, setSubscribeModalVisible] = useState(false);
+  const [promoModalVisible, setPromoModalVisible] = useState(false);
 
   useEffect(() => {
     loadSubscriptions().then(() => {
@@ -75,8 +80,8 @@ export default function UserDashboard() {
             <p style={{ margin: '0 0 12px 0', fontSize: 'var(--font-size-subheadline)', color: 'var(--text-secondary)' }}>
               Вам был назначен временный пароль. Пожалуйста, измените его.
             </p>
-            <button className="btn btn-primary btn-sm" onClick={() => setPasswordFormVisible(false)}>
-              Сменить сейчас (TODO)
+            <button className="btn btn-primary btn-sm" onClick={() => setPasswordFormVisible(true)}>
+              Сменить сейчас
             </button>
           </div>
         )}
@@ -165,21 +170,33 @@ export default function UserDashboard() {
           </>
         ) : (
           <div className="card" style={{ textAlign: 'center', marginTop: 40, padding: 32 }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: 16, background: 'var(--system-gray6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 32, margin: '0 auto 20px', color: 'var(--ios-blue)'
-            }}>
+            <div 
+              style={{
+                width: 64, height: 64, borderRadius: 16, background: 'var(--system-gray6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 32, margin: '0 auto 20px', color: 'var(--ios-blue)',
+                cursor: 'pointer'
+              }}
+              onClick={() => setSubscribeModalVisible(true)}
+            >
               +
             </div>
             <h3 style={{ margin: '0 0 8px 0', fontSize: 'var(--font-size-headline)' }}>Нет подписок</h3>
             <p style={{ color: 'var(--text-secondary)', marginBottom: 24, fontSize: 'var(--font-size-subheadline)', lineHeight: 1.4 }}>
               Вы пока не подписаны ни на один календарь специалиста.
             </p>
-            <button className="btn btn-primary btn-block" style={{ marginBottom: 12, borderRadius: 12 }}>
+            <button 
+              className="btn btn-primary btn-block" 
+              style={{ marginBottom: 12, borderRadius: 12 }}
+              onClick={() => setSubscribeModalVisible(true)}
+            >
               Подписаться по коду
             </button>
-            <button className="btn" style={{ background: 'var(--system-gray5)', color: 'var(--text-primary)', width: '100%', borderRadius: 12 }}>
+            <button 
+              className="btn" 
+              style={{ background: 'var(--system-gray5)', color: 'var(--text-primary)', width: '100%', borderRadius: 12 }}
+              onClick={() => setPromoModalVisible(true)}
+            >
               Стать специалистом
             </button>
           </div>
@@ -187,6 +204,22 @@ export default function UserDashboard() {
       </div>
 
       {selectedSlotId && <BookingBar />}
+
+      <ChangePasswordModal 
+        isOpen={passwordFormVisible}
+        onClose={() => setPasswordFormVisible(false)}
+        onSuccess={() => setPasswordFormVisible(false)}
+      />
+      <SubscribeModal 
+        isOpen={subscribeModalVisible}
+        onClose={() => setSubscribeModalVisible(false)}
+        onSuccess={() => setSubscribeModalVisible(false)}
+      />
+      <PromoModal 
+        isOpen={promoModalVisible}
+        onClose={() => setPromoModalVisible(false)}
+        onSuccess={() => setPromoModalVisible(false)}
+      />
     </div>
   );
 }

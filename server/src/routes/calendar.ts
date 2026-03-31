@@ -30,11 +30,12 @@
 // 4. subscribe: Пользователь подписывается на календарь по коду.
 //    Создаётся CalendarMember(ZOMBIE). Специалист должен повысить до CLIENT.
 
-import { Router } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { requireAuth, optionalAuth } from '../middleware/auth';
 import { requireCalendarRole } from '../middleware/roles';
 import { validate } from '../middleware/validate';
+import { activateCalendar, getMyCalendars, getSubscriptions, getCalendarByShare, subscribeToCalendar } from '../services/calendar.service';
 
 export const calendarRouter = Router();
 
@@ -78,30 +79,34 @@ const updateMemberSchema = z.object({
 // --- Маршруты ---
 
 // POST /api/calendar/activate
-calendarRouter.post('/activate', requireAuth, validate(activateSchema), async (req, res, next) => {
-  // TODO: Реализовать активацию календаря (см. calendar.service.ts)
+calendarRouter.post('/activate', requireAuth, validate(activateSchema), async (req: any, res: Response, next: NextFunction) => {
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const calendar = await activateCalendar(req.user.id, req.body.code);
+    res.json({ message: 'Календарь успешно активирован', calendar });
+  } catch (error: any) {
+    if (error.message.includes('Недействительный')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // GET /api/calendar/my
-calendarRouter.get('/my', requireAuth, async (req, res, next) => {
-  // TODO: Вернуть календари где user = owner
+calendarRouter.get('/my', requireAuth, async (req: any, res: Response, next: NextFunction) => {
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const calendars = await getMyCalendars(req.user.id);
+    res.json(calendars);
   } catch (error) {
     next(error);
   }
 });
 
 // GET /api/calendar/subscriptions
-calendarRouter.get('/subscriptions', requireAuth, async (req, res, next) => {
-  // TODO: Вернуть календари где user = member
+calendarRouter.get('/subscriptions', requireAuth, async (req: any, res: Response, next: NextFunction) => {
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const calendars = await getSubscriptions(req.user.id);
+    res.json(calendars);
   } catch (error) {
     next(error);
   }
@@ -118,11 +123,15 @@ calendarRouter.get('/share/:shareLink', optionalAuth, async (req, res, next) => 
 });
 
 // POST /api/calendar/subscribe
-calendarRouter.post('/subscribe', requireAuth, validate(subscribeSchema), async (req, res, next) => {
-  // TODO: Подписка на календарь по коду
+calendarRouter.post('/subscribe', requireAuth, validate(subscribeSchema), async (req: any, res: Response, next: NextFunction) => {
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const member = await subscribeToCalendar(req.user.id, req.body.code);
+    res.json({ message: 'Успешная подписка на календарь', member });
+  } catch (error: any) {
+    if (error.message.includes('не найден') || error.message.includes('уже подписаны')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });

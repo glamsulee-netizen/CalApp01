@@ -73,6 +73,8 @@ interface CalendarState {
   loadCalendar: (calendarId: number) => Promise<void>;
   loadCalendarByShare: (shareLink: string) => Promise<void>;
   loadSubscriptions: () => Promise<void>;
+  subscribeToCalendar: (code: string) => Promise<void>;
+  activatePromo: (code: string) => Promise<void>;
   loadWeekSlots: (calendarId: number, weekStart: Date) => Promise<void>;
   loadUpcoming: () => Promise<void>;
   setWeek: (weekStart: Date) => void;
@@ -128,8 +130,35 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   loadSubscriptions: async () => {
-    // TODO: GET /api/calendar/subscriptions
-    set({ isLoading: false });
+    try {
+      set({ isLoading: true, error: null });
+      const subscriptions = await apiGet<CalendarData[]>('/calendar/subscriptions');
+      set({ subscriptions, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  subscribeToCalendar: async (code: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      await apiPost('/calendar/subscribe', { code });
+      await get().loadSubscriptions();
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  activatePromo: async (code: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      await apiPost('/calendar/activate', { code });
+      await get().loadSubscriptions();
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
   },
 
   loadWeekSlots: async (calendarId, weekStart) => {
