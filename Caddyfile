@@ -10,12 +10,12 @@
 
 	# Proxy API requests
 	handle /api/* {
-		reverse_proxy server:3000
+		reverse_proxy server:{$SERVER_PORT:3000}
 	}
 
 	# Proxy WebSocket Connect
 	handle /socket.io/* {
-		reverse_proxy server:3000
+		reverse_proxy server:{$SERVER_PORT:3000}
 	}
 
 	# Proxy Frontend

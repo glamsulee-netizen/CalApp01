@@ -107,6 +107,7 @@ services:
     restart: unless-stopped
     environment:
       - APP_DOMAIN=${APP_DOMAIN}
+      - SERVER_PORT=${SERVER_PORT:-3000}
     ports:
       - "80:80"
       - "443:443"
