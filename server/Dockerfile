@@ -30,7 +30,7 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 RUN npm install --omit=dev --legacy-peer-deps
-RUN npx prisma generate
+RUN npx prisma@5.10.0 generate
 
 COPY --from=builder /app/dist ./dist
 
