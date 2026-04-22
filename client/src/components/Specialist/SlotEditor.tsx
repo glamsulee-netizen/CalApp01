@@ -29,9 +29,20 @@ export default function SlotEditor({ slotId, startTime, endTime, cellHeight, onR
   const [isDragging, setIsDragging] = useState(false);
   const [previewEndTime, setPreviewEndTime] = useState(endTime);
   const startY = useRef(0);
+  const startEndTime = useRef(endTime);
 
-  // TODO: Реализовать полный touch-resize
-  // Используя onTouchStart, onTouchMove, onTouchEnd
+  const toMinutes = (value: string): number => {
+    const [h, m] = value.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const toTime = (minutes: number): string => {
+    const h = Math.floor(minutes / 60)
+      .toString()
+      .padStart(2, '0');
+    const m = (minutes % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+  };
 
   return (
     <div
@@ -55,6 +66,18 @@ export default function SlotEditor({ slotId, startTime, endTime, cellHeight, onR
         onTouchStart={(e) => {
           setIsDragging(true);
           startY.current = e.touches[0].clientY;
+          startEndTime.current = previewEndTime;
+        }}
+        onTouchMove={(e) => {
+          if (!isDragging) return;
+          const deltaY = e.touches[0].clientY - startY.current;
+          const minuteStep = Math.round(deltaY / cellHeight) * 15;
+          const baseEnd = toMinutes(startEndTime.current);
+          const start = toMinutes(startTime);
+          const minEnd = start + 15;
+          const maxEnd = start + 240;
+          const nextEnd = Math.min(maxEnd, Math.max(minEnd, baseEnd + minuteStep));
+          setPreviewEndTime(toTime(nextEnd));
         }}
         onTouchEnd={() => {
           setIsDragging(false);

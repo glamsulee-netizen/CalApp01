@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiPost, apiGet } from '../../api';
+import { useToastStore } from '../UI/Toast';
 
 interface PromoCode {
   id: number;
@@ -28,6 +29,7 @@ export default function PromoGenerator() {
   const [allCodes, setAllCodes] = useState<PromoCode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'used' | 'free'>('all');
+  const showToast = useToastStore((s) => s.show);
 
   useEffect(() => { loadCodes(); }, []);
 
@@ -49,8 +51,9 @@ export default function PromoGenerator() {
   };
 
   const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    // TODO: Toast «Скопировано»
+    navigator.clipboard.writeText(code)
+      .then(() => showToast('Код скопирован', 'success'))
+      .catch(() => showToast('Не удалось скопировать код', 'error'));
   };
 
   const filtered = allCodes.filter(c =>

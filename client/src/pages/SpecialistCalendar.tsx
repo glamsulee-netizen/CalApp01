@@ -9,10 +9,12 @@
 // Touch-resize: зажать край слота → потянуть вверх/вниз → изменить длительность
 // Все изменения → Socket.IO → мгновенное обновление у пользователей.
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useCalendarStore } from '../store/calendarStore';
 import WeekGrid from '../components/Calendar/WeekGrid';
 import WeekNavigator from '../components/Calendar/WeekNavigator';
+import { apiPatch } from '../api';
+import { useToastStore } from '../components/UI/Toast';
 
 export default function SpecialistCalendar() {
   const { 
@@ -20,14 +22,32 @@ export default function SpecialistCalendar() {
     slots, 
     weekStart, 
     selectedSlotId, 
-    selectSlot 
+    selectSlot,
+    loadWeekSlots,
+    cancelBooking,
   } = useCalendarStore();
+  const showToast = useToastStore((s) => s.show);
 
   const handleSlotClick = (slot: any) => {
     // In specialist mode, tapping a slot could open an Action Sheet to toggle it,
     // or if it's booked, see details and cancel. 
     // Right now, just select it.
     selectSlot(slot.id === selectedSlotId ? null : slot.id);
+  };
+
+  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
+
+  const handleToggleSlot = async () => {
+    if (!currentCalendar || !selectedSlot) return;
+    try {
+      await apiPatch(`/calendar/${currentCalendar.id}/slots/${selectedSlot.id}`, {
+        isOpen: !selectedSlot.isOpen,
+      });
+      await loadWeekSlots(currentCalendar.id, weekStart);
+      showToast('Слот обновлен', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Не удалось обновить слот', 'error');
+    }
   };
 
   if (!currentCalendar) {
@@ -67,9 +87,27 @@ export default function SpecialistCalendar() {
           display: 'flex', gap: 8, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', zIndex: 100,
           border: '0.5px solid rgba(255, 255, 255, 0.1)', animation: 'slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
         }}>
-          <button className="btn btn-primary" style={{ flex: 1, margin: 0, padding: '10px' }}>
-            Открыть / Закрыть
+          <button className="btn btn-primary" style={{ flex: 1, margin: 0, padding: '10px' }} onClick={handleToggleSlot}>
+            {selectedSlot?.isOpen ? 'Закрыть слот' : 'Открыть слот'}
           </button>
+          {selectedSlot?.booking?.id && (
+            <button
+              className="btn"
+              style={{ margin: 0, padding: '10px', background: 'var(--ios-red)', color: '#fff' }}
+              onClick={async () => {
+                try {
+                  await cancelBooking(selectedSlot.booking!.id);
+                  await loadWeekSlots(currentCalendar.id, weekStart);
+                  showToast('Бронирование отменено', 'success');
+                  selectSlot(null);
+                } catch (error: any) {
+                  showToast(error.message || 'Не удалось отменить бронирование', 'error');
+                }
+              }}
+            >
+              Отменить бронь
+            </button>
+          )}
           <button className="btn" style={{ margin: 0, padding: '10px', background: 'var(--system-gray5)', color: 'var(--text-primary)' }} onClick={() => selectSlot(null)}>
             ✕
           </button>

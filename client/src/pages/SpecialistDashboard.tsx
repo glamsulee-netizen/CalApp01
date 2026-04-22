@@ -18,23 +18,35 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useCalendarStore } from '../store/calendarStore';
 import SpecialistCalendar from './SpecialistCalendar';
+import { apiGet } from '../api';
+import { useToastStore } from '../components/UI/Toast';
 
 type Tab = 'calendar' | 'users' | 'settings';
 
 export default function SpecialistDashboard() {
   const { user } = useAuthStore();
-  const { currentCalendar, subscriptions, loadSubscriptions } = useCalendarStore();
+  const { currentCalendar, activatePromo, loadSubscriptions, switchCalendar } = useCalendarStore();
+  const showToast = useToastStore((s) => s.show);
   
   const [activeTab, setActiveTab] = useState<Tab>('calendar');
   const [activationCode, setActivationCode] = useState('');
 
-  // Check if User owns any calendar
-  // Strictly speaking we should get 'ownedCalendars' from the API, 
-  // but for now let's assume if there's a currentCalendar and user owns it, or we handle it via load
-  const [hasCalendar, setHasCalendar] = useState(true); // Stub until API hook is real
+  const [hasCalendar, setHasCalendar] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
 
   useEffect(() => {
-    // API logic to check if they have an active calendar goes here.
+    (async () => {
+      try {
+        const owned = await apiGet<any[]>('/calendar/my');
+        setHasCalendar(owned.length > 0);
+        await loadSubscriptions();
+        if (owned.length > 0 && !currentCalendar) {
+          switchCalendar(owned[0].id);
+        }
+      } catch {
+        setHasCalendar(false);
+      }
+    })();
   }, []);
 
   if (!hasCalendar) {
@@ -72,8 +84,20 @@ export default function SpecialistDashboard() {
             className="btn btn-primary btn-block btn-lg" 
             disabled={activationCode.length < 8}
             style={{ borderRadius: 'var(--radius-card)' }}
+            onClick={async () => {
+              try {
+                setIsActivating(true);
+                await activatePromo(activationCode);
+                setHasCalendar(true);
+                showToast('Календарь активирован', 'success');
+              } catch (error: any) {
+                showToast(error.message || 'Ошибка активации', 'error');
+              } finally {
+                setIsActivating(false);
+              }
+            }}
           >
-            Активировать
+            {isActivating ? 'Активация...' : 'Активировать'}
           </button>
         </div>
       </div>

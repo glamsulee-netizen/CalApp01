@@ -109,6 +109,16 @@ function getMonday(date: Date): Date {
   return d;
 }
 
+function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+interface CalendarResponse {
+  calendar: CalendarData;
+  role: string | null;
+  currentWeekSlots: SlotData[];
+}
+
 export const useCalendarStore = create<CalendarState>((set, get) => ({
   currentCalendar: null,
   slots: [],
@@ -120,13 +130,34 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   error: null,
 
   loadCalendar: async (calendarId) => {
-    // TODO: Реализовать
-    set({ isLoading: false });
+    try {
+      set({ isLoading: true, error: null });
+      const weekStart = get().weekStart;
+      const data = await apiGet<CalendarResponse>(`/calendar/${calendarId}?week=${formatDate(weekStart)}`);
+      set({
+        currentCalendar: data.calendar,
+        slots: data.currentWeekSlots,
+        isLoading: false,
+      });
+      get().subscribeSocket(calendarId);
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false, currentCalendar: null, slots: [] });
+    }
   },
 
   loadCalendarByShare: async (shareLink) => {
-    // TODO: Реализовать
-    set({ isLoading: false });
+    try {
+      set({ isLoading: true, error: null, selectedSlotId: null });
+      const data = await apiGet<CalendarResponse>(`/calendar/share/${shareLink}`);
+      set({
+        currentCalendar: data.calendar,
+        slots: data.currentWeekSlots,
+        isLoading: false,
+      });
+      get().subscribeSocket(data.calendar.id);
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false, currentCalendar: null, slots: [] });
+    }
   },
 
   loadSubscriptions: async () => {
@@ -162,12 +193,34 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   loadWeekSlots: async (calendarId, weekStart) => {
-    // TODO: GET /api/calendar/:id/slots?week=...
-    set({ isLoading: false });
+    try {
+      set({ isLoading: true, error: null });
+      const slots = await apiGet<SlotData[]>(`/calendar/${calendarId}/slots?week=${formatDate(weekStart)}`);
+      set({ slots, weekStart, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
   },
 
   loadUpcoming: async () => {
-    // TODO: GET /api/booking/upcoming
+    try {
+      const booking = await apiGet<any>('/booking/upcoming');
+      if (!booking) {
+        set({ upcomingBooking: null });
+        return;
+      }
+      set({
+        upcomingBooking: {
+          id: booking.id,
+          date: booking.date,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          calendarTitle: booking.calendarTitle,
+        },
+      });
+    } catch {
+      set({ upcomingBooking: null });
+    }
   },
 
   setWeek: (weekStart) => set({ weekStart }),
@@ -208,11 +261,39 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   },
 
   bookSlot: async (slotId) => {
-    // TODO: POST /api/booking + обработка ответа
+    const { currentCalendar } = get();
+    if (!currentCalendar) return;
+    try {
+      set({ isLoading: true, error: null });
+      await apiPost('/booking', { slotId, calendarId: currentCalendar.id });
+      set((state) => ({
+        slots: state.slots.map((slot) =>
+          slot.id === slotId ? { ...slot, isBooked: true } : slot
+        ),
+        selectedSlotId: null,
+        isLoading: false,
+      }));
+      await get().loadUpcoming();
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
   },
 
   cancelBooking: async (bookingId) => {
-    // TODO: DELETE /api/booking/:id
+    try {
+      set({ isLoading: true, error: null });
+      await apiDelete(`/booking/${bookingId}`);
+      const { currentCalendar, weekStart } = get();
+      if (currentCalendar) {
+        await get().loadWeekSlots(currentCalendar.id, weekStart);
+      }
+      await get().loadUpcoming();
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
   },
 
   subscribeSocket: (calendarId) => {
@@ -242,6 +323,24 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         ),
       }));
     });
+
+    socket.on('slot:created', (slot: SlotData) => {
+      set((state) => ({ slots: [...state.slots, slot] }));
+    });
+
+    socket.on('slot:deleted', (data: { slotId: number }) => {
+      set((state) => ({ slots: state.slots.filter((slot) => slot.id !== data.slotId) }));
+    });
+
+    socket.on('booking:moved', (data: { oldSlotId: number; newSlotId: number }) => {
+      set((state) => ({
+        slots: state.slots.map((slot) => {
+          if (slot.id === data.oldSlotId) return { ...slot, isBooked: false };
+          if (slot.id === data.newSlotId) return { ...slot, isBooked: true };
+          return slot;
+        }),
+      }));
+    });
   },
 
   unsubscribeSocket: (calendarId) => {
@@ -251,6 +350,9 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       socket.off('slot:updated');
       socket.off('booking:created');
       socket.off('booking:cancelled');
+      socket.off('slot:created');
+      socket.off('slot:deleted');
+      socket.off('booking:moved');
     }
   },
 }));

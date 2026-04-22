@@ -35,7 +35,21 @@ import { z } from 'zod';
 import { requireAuth, optionalAuth } from '../middleware/auth';
 import { requireCalendarRole } from '../middleware/roles';
 import { validate } from '../middleware/validate';
-import { activateCalendar, getMyCalendars, getSubscriptions, getCalendarByShare, subscribeToCalendar } from '../services/calendar.service';
+import {
+  activateCalendar,
+  createSlot,
+  deleteSlot,
+  getCalendarById,
+  getCalendarByShare,
+  getMembers,
+  getMyCalendars,
+  getSubscriptions,
+  getWeekSlots,
+  subscribeToCalendar,
+  updateCalendar,
+  updateMember,
+  updateSlot,
+} from '../services/calendar.service';
 
 export const calendarRouter = Router();
 
@@ -114,9 +128,13 @@ calendarRouter.get('/subscriptions', requireAuth, async (req: any, res: Response
 
 // GET /api/calendar/share/:shareLink — публичный доступ
 calendarRouter.get('/share/:shareLink', optionalAuth, async (req, res, next) => {
-  // TODO: Реализовать публичный просмотр (см. calendar.service.ts)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const data = await getCalendarByShare(req.params.shareLink, (req as any).user?.id);
+    if (!data) {
+      res.status(404).json({ error: 'Календарь не найден' });
+      return;
+    }
+    res.json(data);
   } catch (error) {
     next(error);
   }
@@ -138,19 +156,34 @@ calendarRouter.post('/subscribe', requireAuth, validate(subscribeSchema), async 
 
 // GET /api/calendar/:calendarId
 calendarRouter.get('/:calendarId', requireAuth, async (req, res, next) => {
-  // TODO: Получить календарь с слотами
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    if (Number.isNaN(calendarId)) {
+      res.status(400).json({ error: 'Некорректный ID календаря' });
+      return;
+    }
+    const week = typeof req.query.week === 'string' ? new Date(req.query.week) : undefined;
+    const data = await getCalendarById(calendarId, (req as any).user.id, week);
+    res.json(data);
+  } catch (error: any) {
+    if (error.message?.includes('не найден')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('Нет доступа')) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // PATCH /api/calendar/:calendarId
 calendarRouter.patch('/:calendarId', requireAuth, requireCalendarRole('SPECIALIST'), validate(calendarUpdateSchema), async (req, res, next) => {
-  // TODO: Обновить настройки календаря
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    const calendar = await updateCalendar(calendarId, req.body);
+    res.json(calendar);
   } catch (error) {
     next(error);
   }
@@ -158,39 +191,65 @@ calendarRouter.patch('/:calendarId', requireAuth, requireCalendarRole('SPECIALIS
 
 // POST /api/calendar/:calendarId/slots
 calendarRouter.post('/:calendarId/slots', requireAuth, requireCalendarRole('SPECIALIST'), validate(createSlotSchema), async (req, res, next) => {
-  // TODO: Создать слот + Socket.IO event
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    const slot = await createSlot(calendarId, req.body);
+    res.status(201).json(slot);
+  } catch (error: any) {
+    if (error.message?.includes('пересекается') || error.message?.includes('Время начала')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // PATCH /api/calendar/:calendarId/slots/:slotId
 calendarRouter.patch('/:calendarId/slots/:slotId', requireAuth, requireCalendarRole('SPECIALIST'), validate(updateSlotSchema), async (req, res, next) => {
-  // TODO: Обновить слот + Socket.IO event
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    const slotId = Number.parseInt(req.params.slotId, 10);
+    const slot = await updateSlot(calendarId, slotId, req.body);
+    res.json(slot);
+  } catch (error: any) {
+    if (error.message?.includes('не найден')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('Нельзя') || error.message?.includes('пересекается') || error.message?.includes('endTime')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // DELETE /api/calendar/:calendarId/slots/:slotId
 calendarRouter.delete('/:calendarId/slots/:slotId', requireAuth, requireCalendarRole('SPECIALIST'), async (req, res, next) => {
-  // TODO: Удалить слот + Socket.IO event
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    const slotId = Number.parseInt(req.params.slotId, 10);
+    await deleteSlot(calendarId, slotId);
+    res.status(204).send();
+  } catch (error: any) {
+    if (error.message?.includes('не найден')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('Нельзя удалить')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // GET /api/calendar/:calendarId/members
 calendarRouter.get('/:calendarId/members', requireAuth, requireCalendarRole('SPECIALIST'), async (req, res, next) => {
-  // TODO: Список участников с активными бронированиями
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    const members = await getMembers(calendarId);
+    res.json(members);
   } catch (error) {
     next(error);
   }
@@ -198,10 +257,37 @@ calendarRouter.get('/:calendarId/members', requireAuth, requireCalendarRole('SPE
 
 // PATCH /api/calendar/:calendarId/members/:memberId
 calendarRouter.patch('/:calendarId/members/:memberId', requireAuth, requireCalendarRole('SPECIALIST'), validate(updateMemberSchema), async (req, res, next) => {
-  // TODO: Обновить роль/лимит бронирований участника
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    const memberId = Number.parseInt(req.params.memberId, 10);
+    const member = await updateMember(calendarId, memberId, req.body);
+    res.json(member);
+  } catch (error: any) {
+    if (error.message?.includes('не найден')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    next(error);
+  }
+});
+
+calendarRouter.get('/:calendarId/slots', requireAuth, async (req: any, res: Response, next: NextFunction) => {
+  try {
+    const calendarId = Number.parseInt(req.params.calendarId, 10);
+    const week = typeof req.query.week === 'string' ? new Date(req.query.week) : new Date();
+    const calendar = await getCalendarById(calendarId, req.user.id, week);
+    const isSpecialist = calendar.role === 'SPECIALIST';
+    const slots = await getWeekSlots(calendarId, week, isSpecialist, req.user.id);
+    res.json(slots);
+  } catch (error: any) {
+    if (error.message?.includes('не найден')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('Нет доступа')) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });

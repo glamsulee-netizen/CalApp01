@@ -25,11 +25,13 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
+import crypto from 'crypto';
 import { requireAuth } from '../middleware/auth';
 import { requirePlatformRole } from '../middleware/roles';
 import { validate } from '../middleware/validate';
 import { getPlatformStats, generatePromoCodes } from '../services/promo.service';
 import { prisma } from '../index';
+import { config } from '../config';
 
 export const adminRouter = Router();
 
@@ -59,6 +61,18 @@ const smtpProviderSchema = z.object({
   priority: z.number().int().min(0),
   isActive: z.boolean().optional(),
 });
+const smtpUpdateSchema = smtpProviderSchema.partial();
+
+function deriveEncryptionKey(): Buffer {
+  return crypto.createHash('sha256').update(config.jwtRefreshSecret).digest();
+}
+
+function encryptSecret(value: string): string {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', deriveEncryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
+}
 
 // --- Маршруты ---
 
@@ -74,9 +88,38 @@ adminRouter.get('/stats', async (req, res, next) => {
 
 // GET /api/admin/users
 adminRouter.get('/users', async (req, res, next) => {
-  // TODO: Реализовать с пагинацией и поиском
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const page = Math.max(1, Number.parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit as string, 10) || 20));
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const skip = (page - 1) * limit;
+    const where = search
+      ? {
+          OR: [
+            { email: { contains: search, mode: 'insensitive' as const } },
+            { name: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+
+    const [items, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+    res.json({ items, page, limit, total, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     next(error);
   }
@@ -84,10 +127,23 @@ adminRouter.get('/users', async (req, res, next) => {
 
 // PATCH /api/admin/users/:userId
 adminRouter.patch('/users/:userId', validate(updateUserSchema), async (req, res, next) => {
-  // TODO: Реализовать обновление пользователя
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const userId = Number.parseInt(req.params.userId, 10);
+    if (Number.isNaN(userId)) {
+      res.status(400).json({ error: 'Некорректный ID пользователя' });
+      return;
+    }
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: req.body,
+      select: { id: true, email: true, name: true, role: true, isActive: true },
+    });
+    res.json(user);
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      res.status(404).json({ error: 'Пользователь не найден' });
+      return;
+    }
     next(error);
   }
 });
@@ -118,9 +174,11 @@ adminRouter.get('/promo', async (req, res, next) => {
 
 // GET /api/admin/settings
 adminRouter.get('/settings', async (req, res, next) => {
-  // TODO: Реализовать получение настроек
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const settings = await prisma.platformSettings.findMany({
+      orderBy: { key: 'asc' },
+    });
+    res.json(settings);
   } catch (error) {
     next(error);
   }
@@ -128,9 +186,19 @@ adminRouter.get('/settings', async (req, res, next) => {
 
 // PATCH /api/admin/settings
 adminRouter.patch('/settings', async (req, res, next) => {
-  // TODO: Реализовать обновление настроек
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const payload = req.body as Record<string, string | number | boolean | null | undefined>;
+    const entries = Object.entries(payload).filter(([, value]) => value !== undefined && value !== null);
+    const settings = await Promise.all(
+      entries.map(([key, value]) =>
+        prisma.platformSettings.upsert({
+          where: { key },
+          update: { value: String(value) },
+          create: { key, value: String(value) },
+        }),
+      ),
+    );
+    res.json({ updated: settings.length, settings });
   } catch (error) {
     next(error);
   }
@@ -138,9 +206,26 @@ adminRouter.patch('/settings', async (req, res, next) => {
 
 // GET /api/admin/smtp
 adminRouter.get('/smtp', async (req, res, next) => {
-  // TODO: Реализовать список SMTP-провайдеров (без паролей!)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const providers = await prisma.smtpProvider.findMany({
+      orderBy: [{ priority: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        host: true,
+        port: true,
+        user: true,
+        fromEmail: true,
+        dailyLimit: true,
+        sentToday: true,
+        lastResetAt: true,
+        isActive: true,
+        priority: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    res.json(providers);
   } catch (error) {
     next(error);
   }
@@ -148,30 +233,86 @@ adminRouter.get('/smtp', async (req, res, next) => {
 
 // POST /api/admin/smtp
 adminRouter.post('/smtp', validate(smtpProviderSchema), async (req, res, next) => {
-  // TODO: Реализовать добавление SMTP-провайдера
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const created = await prisma.smtpProvider.create({
+      data: {
+        ...req.body,
+        password: encryptSecret(req.body.password),
+      },
+      select: {
+        id: true,
+        name: true,
+        host: true,
+        port: true,
+        user: true,
+        fromEmail: true,
+        dailyLimit: true,
+        sentToday: true,
+        isActive: true,
+        priority: true,
+      },
+    });
+    res.status(201).json(created);
   } catch (error) {
     next(error);
   }
 });
 
 // PATCH /api/admin/smtp/:id
-adminRouter.patch('/smtp/:id', async (req, res, next) => {
-  // TODO: Реализовать обновление SMTP-провайдера
+adminRouter.patch('/smtp/:id', validate(smtpUpdateSchema), async (req, res, next) => {
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const id = Number.parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Некорректный ID SMTP-провайдера' });
+      return;
+    }
+    const data = { ...req.body } as Record<string, unknown>;
+    if (typeof data.password === 'string' && data.password.length > 0) {
+      data.password = encryptSecret(data.password);
+    } else {
+      delete data.password;
+    }
+    const updated = await prisma.smtpProvider.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        name: true,
+        host: true,
+        port: true,
+        user: true,
+        fromEmail: true,
+        dailyLimit: true,
+        sentToday: true,
+        isActive: true,
+        priority: true,
+      },
+    });
+    res.json(updated);
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      res.status(404).json({ error: 'SMTP-провайдер не найден' });
+      return;
+    }
     next(error);
   }
 });
 
 // DELETE /api/admin/smtp/:id
 adminRouter.delete('/smtp/:id', async (req, res, next) => {
-  // TODO: Реализовать удаление SMTP-провайдера
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const id = Number.parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Некорректный ID SMTP-провайдера' });
+      return;
+    }
+    await prisma.smtpProvider.delete({ where: { id } });
+    res.status(204).send();
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      res.status(404).json({ error: 'SMTP-провайдер не найден' });
+      return;
+    }
     next(error);
   }
 });

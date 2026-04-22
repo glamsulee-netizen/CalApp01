@@ -12,6 +12,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { apiPatch } from '../api';
+import { useToastStore } from '../components/UI/Toast';
 
 export default function Settings() {
   const { user, logout } = useAuthStore();
@@ -21,9 +23,24 @@ export default function Settings() {
   const [messenger, setMessenger] = useState('');
   const [messengerType, setMessengerType] = useState('telegram');
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const showToast = useToastStore((s) => s.show);
 
   const handleSave = async () => {
-    // TODO: PATCH /api/users/me
+    try {
+      setIsSaving(true);
+      await apiPatch('/users/me', {
+        name,
+        phone,
+        messenger,
+        messengerType,
+      });
+      showToast('Профиль сохранен', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Не удалось сохранить профиль', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -95,8 +112,8 @@ export default function Settings() {
 
       {/* Кнопка Сохранить */}
       <div style={{ margin: 'var(--spacing-lg) var(--ios-inset)' }}>
-        <button className="btn btn-primary btn-block" onClick={handleSave} style={{ borderRadius: 'var(--radius-card)' }}>
-          Сохранить
+        <button className="btn btn-primary btn-block" onClick={handleSave} style={{ borderRadius: 'var(--radius-card)' }} disabled={isSaving}>
+          {isSaving ? 'Сохраняем...' : 'Сохранить'}
         </button>
       </div>
 

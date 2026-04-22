@@ -16,6 +16,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { prisma } from '../index';
 
 export const usersRouter = Router();
 
@@ -34,9 +35,33 @@ const updateProfileSchema = z.object({
 
 // GET /api/users/me
 usersRouter.get('/me', async (req, res, next) => {
-  // TODO: Реализовать получение профиля с подписками и календарями
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const userId = (req as any).user.id as number;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        messenger: true,
+        messengerType: true,
+        role: true,
+        mustChangePassword: true,
+        isActive: true,
+        memberships: {
+          include: {
+            calendar: true,
+          },
+        },
+        ownedCalendars: true,
+      },
+    });
+    if (!user) {
+      res.status(404).json({ error: 'Пользователь не найден' });
+      return;
+    }
+    res.json(user);
   } catch (error) {
     next(error);
   }
@@ -44,9 +69,23 @@ usersRouter.get('/me', async (req, res, next) => {
 
 // PATCH /api/users/me
 usersRouter.patch('/me', validate(updateProfileSchema), async (req, res, next) => {
-  // TODO: Реализовать обновление профиля
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const userId = (req as any).user.id as number;
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: req.body,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        messenger: true,
+        messengerType: true,
+        role: true,
+        mustChangePassword: true,
+      },
+    });
+    res.json(updated);
   } catch (error) {
     next(error);
   }
@@ -54,9 +93,29 @@ usersRouter.patch('/me', validate(updateProfileSchema), async (req, res, next) =
 
 // GET /api/users/notifications
 usersRouter.get('/notifications', async (req, res, next) => {
-  // TODO: Реализовать пагинированный список уведомлений
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const userId = (req as any).user.id as number;
+    const page = Math.max(1, Number.parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit as string, 10) || 20));
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.notification.count({ where: { userId } }),
+    ]);
+
+    res.json({
+      items,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     next(error);
   }
@@ -64,10 +123,28 @@ usersRouter.get('/notifications', async (req, res, next) => {
 
 // PATCH /api/users/notifications/:id/read
 usersRouter.patch('/notifications/:id/read', async (req, res, next) => {
-  // TODO: Отметить уведомление как прочитанное
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const userId = (req as any).user.id as number;
+    const notificationId = Number.parseInt(req.params.id, 10);
+    if (Number.isNaN(notificationId)) {
+      res.status(400).json({ error: 'Некорректный ID уведомления' });
+      return;
+    }
+    const existing = await prisma.notification.findFirst({
+      where: { id: notificationId, userId },
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'Уведомление не найдено' });
+      return;
+    }
+    const updated = existing.isRead
+      ? existing
+      : await prisma.notification.update({
+          where: { id: notificationId },
+          data: { isRead: true },
+        });
+    res.json(updated);
+  } catch (error: any) {
     next(error);
   }
 });

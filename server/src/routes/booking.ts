@@ -38,6 +38,16 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import {
+  cancelBooking,
+  createBooking,
+  getCalendarBookings,
+  getUpcomingBooking,
+  getUserBookings,
+  moveBooking,
+  togglePayment,
+} from '../services/booking.service';
+import { prisma } from '../index';
 
 export const bookingRouter = Router();
 
@@ -55,53 +65,109 @@ const moveBookingSchema = z.object({
   newSlotId: z.number().int().positive(),
 });
 
+function parseId(value: string): number | null {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 // --- Маршруты ---
 
 // POST /api/booking
 bookingRouter.post('/', validate(createBookingSchema), async (req, res, next) => {
-  // TODO: Реализовать создание бронирования (см. booking.service.ts → createBooking)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const booking = await createBooking(req.user!.id, req.body.slotId, req.body.calendarId);
+    res.status(201).json(booking);
+  } catch (error: any) {
+    if (error.message?.includes('Нет прав') || error.message?.includes('лимит')) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
+    if (
+      error.message?.includes('недоступен') ||
+      error.message?.includes('занят') ||
+      error.message?.includes('Превышен')
+    ) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // DELETE /api/booking/:bookingId
 bookingRouter.delete('/:bookingId', async (req, res, next) => {
-  // TODO: Реализовать отмену (см. booking.service.ts → cancelBooking)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const bookingId = parseId(req.params.bookingId);
+    if (!bookingId) {
+      res.status(400).json({ error: 'Некорректный ID бронирования' });
+      return;
+    }
+    await cancelBooking(bookingId, req.user!.id);
+    res.status(204).send();
+  } catch (error: any) {
+    if (error.message?.includes('не найдено')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('Нет прав')) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // POST /api/booking/:bookingId/move
 bookingRouter.post('/:bookingId/move', validate(moveBookingSchema), async (req, res, next) => {
-  // TODO: Реализовать перенос (см. booking.service.ts → moveBooking)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const bookingId = parseId(req.params.bookingId);
+    if (!bookingId) {
+      res.status(400).json({ error: 'Некорректный ID бронирования' });
+      return;
+    }
+    const booking = await moveBooking(bookingId, req.user!.id, req.body.newSlotId);
+    res.json(booking);
+  } catch (error: any) {
+    if (error.message?.includes('не найдено')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('занимается') || error.message?.includes('Недопустимый слот')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // PATCH /api/booking/:bookingId/paid
 bookingRouter.patch('/:bookingId/paid', async (req, res, next) => {
-  // TODO: Реализовать toggle оплаты (только специалист)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
-  } catch (error) {
+    const bookingId = parseId(req.params.bookingId);
+    if (!bookingId) {
+      res.status(400).json({ error: 'Некорректный ID бронирования' });
+      return;
+    }
+    const booking = await togglePayment(bookingId, req.user!.id);
+    res.json(booking);
+  } catch (error: any) {
+    if (error.message?.includes('Нет прав')) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
+    if (error.message?.includes('не найдено')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
     next(error);
   }
 });
 
 // GET /api/booking/my
 bookingRouter.get('/my', async (req, res, next) => {
-  // TODO: Вернуть бронирования текущего пользователя (статус ACTIVE)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const bookings = await getUserBookings(req.user!.id);
+    res.json(bookings);
   } catch (error) {
     next(error);
   }
@@ -109,9 +175,9 @@ bookingRouter.get('/my', async (req, res, next) => {
 
 // GET /api/booking/upcoming
 bookingRouter.get('/upcoming', async (req, res, next) => {
-  // TODO: Вернуть ближайшее бронирование (для плашки в UI)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const booking = await getUpcomingBooking(req.user!.id);
+    res.json(booking);
   } catch (error) {
     next(error);
   }
@@ -119,9 +185,33 @@ bookingRouter.get('/upcoming', async (req, res, next) => {
 
 // GET /api/booking/calendar/:calendarId
 bookingRouter.get('/calendar/:calendarId', async (req, res, next) => {
-  // TODO: Вернуть все бронирования календаря (для специалиста)
   try {
-    res.status(501).json({ error: 'Не реализовано' });
+    const calendarId = parseId(req.params.calendarId);
+    if (!calendarId) {
+      res.status(400).json({ error: 'Некорректный ID календаря' });
+      return;
+    }
+    if (req.user!.role !== 'ADMIN') {
+      const calendar = await prisma.calendar.findUnique({
+        where: { id: calendarId },
+        select: { ownerId: true },
+      });
+      if (!calendar) {
+        res.status(404).json({ error: 'Календарь не найден' });
+        return;
+      }
+      if (calendar.ownerId !== req.user!.id) {
+        const member = await prisma.calendarMember.findUnique({
+          where: { calendarId_userId: { calendarId, userId: req.user!.id } },
+        });
+        if (!member || member.role !== 'SPECIALIST') {
+          res.status(403).json({ error: 'Недостаточно прав' });
+          return;
+        }
+      }
+    }
+    const bookings = await getCalendarBookings(calendarId);
+    res.json(bookings);
   } catch (error) {
     next(error);
   }

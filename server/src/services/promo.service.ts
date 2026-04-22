@@ -59,8 +59,58 @@ export async function generatePromoCodes(
  * 7. Всё в транзакции
  */
 export async function activatePromoCode(userId: number, code: string) {
-  // TODO: Реализовать
-  throw new Error('Не реализовано');
+  return prisma.$transaction(async (tx) => {
+    const promo = await tx.promoCode.findUnique({ where: { code } });
+    if (!promo || promo.isUsed) {
+      throw new Error('Недействительный или уже использованный промокод');
+    }
+
+    let calendar = await tx.calendar.findFirst({
+      where: { ownerId: userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!calendar) {
+      calendar = await tx.calendar.create({
+        data: {
+          ownerId: userId,
+          title: 'Мой календарь',
+          isActive: true,
+        },
+      });
+      await tx.calendarMember.create({
+        data: {
+          calendarId: calendar.id,
+          userId,
+          role: 'SPECIALIST',
+          maxBookings: 999,
+        },
+      });
+    }
+
+    const now = new Date();
+    const base = calendar.subscriptionEnd && calendar.subscriptionEnd > now ? calendar.subscriptionEnd : now;
+    const newEnd = new Date(base.getTime() + promo.durationDays * 24 * 60 * 60 * 1000);
+
+    const updatedCalendar = await tx.calendar.update({
+      where: { id: calendar.id },
+      data: {
+        isActive: true,
+        subscriptionEnd: newEnd,
+      },
+    });
+
+    const updatedPromo = await tx.promoCode.update({
+      where: { id: promo.id },
+      data: {
+        isUsed: true,
+        usedById: userId,
+        activatedAt: now,
+        expiresAt: newEnd,
+      },
+    });
+
+    return { calendar: updatedCalendar, promoCode: updatedPromo };
+  });
 }
 
 /**

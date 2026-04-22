@@ -186,8 +186,16 @@ export async function getCalendarByShare(shareLink: string, userId?: number): Pr
     if (member) role = member.role;
   }
 
+  const owner = await prisma.user.findUnique({
+    where: { id: calendar.ownerId },
+    select: { name: true, email: true },
+  });
+
   return {
-    calendar,
+    calendar: {
+      ...calendar,
+      ownerName: owner?.name || owner?.email || 'Специалист',
+    },
     role,
     currentWeekSlots: slots
   } as CalendarPublicView;
@@ -343,6 +351,107 @@ export async function deleteSlot(calendarId: number, slotId: number) {
   await prisma.slot.delete({ where: { id: slotId } });
 
   io.to(`calendar:${calendarId}`).emit('slot:deleted', { slotId });
+}
+
+export async function getCalendarById(calendarId: number, userId: number, weekStart?: Date) {
+  const calendar = await prisma.calendar.findUnique({ where: { id: calendarId } });
+  if (!calendar || !calendar.isActive) {
+    throw new Error('Календарь не найден');
+  }
+
+  if (calendar.subscriptionEnd && calendar.subscriptionEnd < new Date()) {
+    throw new Error('Подписка календаря истекла');
+  }
+
+  let role: string | null = null;
+  let isSpecialist = false;
+  if (calendar.ownerId === userId) {
+    role = 'SPECIALIST';
+    isSpecialist = true;
+  } else {
+    const member = await prisma.calendarMember.findUnique({
+      where: { calendarId_userId: { calendarId, userId } },
+    });
+    if (!member) {
+      throw new Error('Нет доступа к календарю');
+    }
+    role = member.role;
+    isSpecialist = member.role === 'SPECIALIST';
+  }
+
+  const owner = await prisma.user.findUnique({
+    where: { id: calendar.ownerId },
+    select: { name: true, email: true },
+  });
+
+  const start = weekStart ? new Date(weekStart) : new Date();
+  const day = start.getDay() || 7;
+  start.setDate(start.getDate() - day + 1);
+  start.setHours(0, 0, 0, 0);
+  const slots = await getWeekSlots(calendarId, start, isSpecialist, userId);
+
+  return {
+    calendar: {
+      ...calendar,
+      ownerName: owner?.name || owner?.email || 'Специалист',
+    },
+    role,
+    currentWeekSlots: slots,
+  };
+}
+
+export async function updateCalendar(calendarId: number, data: CalendarUpdateBody) {
+  return prisma.calendar.update({
+    where: { id: calendarId },
+    data,
+  });
+}
+
+export async function getMembers(calendarId: number) {
+  const members = await prisma.calendarMember.findMany({
+    where: { calendarId },
+    include: { user: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return Promise.all(
+    members.map(async (member) => {
+      const activeBookings = await prisma.booking.count({
+        where: {
+          userId: member.userId,
+          calendarId,
+          status: 'ACTIVE',
+        },
+      });
+      return {
+        id: member.id,
+        userId: member.userId,
+        userName: member.user.name,
+        userEmail: member.user.email,
+        userPhone: member.user.phone,
+        userMessenger: member.user.messenger,
+        userMessengerType: member.user.messengerType,
+        role: member.role,
+        maxBookings: member.maxBookings,
+        activeBookings,
+      };
+    }),
+  );
+}
+
+export async function updateMember(
+  calendarId: number,
+  memberId: number,
+  data: { role?: 'SPECIALIST' | 'CLIENT' | 'ZOMBIE'; maxBookings?: number },
+) {
+  const member = await prisma.calendarMember.findUnique({ where: { id: memberId } });
+  if (!member || member.calendarId !== calendarId) {
+    throw new Error('Участник не найден');
+  }
+  return prisma.calendarMember.update({
+    where: { id: memberId },
+    data,
+  });
 }
 
 // --- Helper: Проверка подписки ---

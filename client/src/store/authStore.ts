@@ -39,12 +39,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   initialize: async () => {
-    // TODO: Реализовать
-    // 1. Попробовать POST /api/auth/refresh
-    // 2. Если успех — сохранить токен, получить /api/users/me
-    // 3. Подключить Socket.IO
-    // 4. Если неудача — set({ isLoading: false })
-    set({ isLoading: false });
+    try {
+      set({ isLoading: true, error: null });
+      const refresh = await api<{ accessToken: string }>('/auth/refresh', { method: 'POST' });
+      setAccessToken(refresh.accessToken);
+      const profile = await api<{ id: number; email: string; name: string; role: 'ADMIN' | 'USER'; mustChangePassword: boolean }>('/users/me');
+      getSocket(refresh.accessToken);
+      set({
+        user: {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          role: profile.role,
+          mustChangePassword: profile.mustChangePassword,
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch {
+      clearAccessToken();
+      disconnectSocket();
+      set({ user: null, isAuthenticated: false, isLoading: false });
+    }
   },
 
   login: async (email, password) => {
@@ -80,7 +96,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     try {
       await api('/auth/logout', { method: 'POST' });
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.warn('[Auth] logout request failed', error);
+    }
     clearAccessToken();
     disconnectSocket();
     set({ user: null, isAuthenticated: false, error: null });

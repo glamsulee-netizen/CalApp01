@@ -252,14 +252,13 @@ export async function getUpcomingBooking(userId: number): Promise<BookingView | 
     id: b.id,
     slotId: b.slotId,
     calendarId: b.calendarId,
+    calendarTitle: b.slot.calendar.title,
+    date: b.slot.date.toISOString(),
+    startTime: b.slot.startTime,
+    endTime: b.slot.endTime,
+    specialistName: b.slot.calendar.title,
     isPaid: b.isPaid,
     status: b.status,
-    slot: {
-      date: b.slot.date,
-      startTime: b.slot.startTime,
-      endTime: b.slot.endTime,
-      calendar: { title: b.slot.calendar.title }
-    }
   } as BookingView;
 }
 
@@ -273,17 +272,37 @@ export async function getUserBookings(userId: number): Promise<BookingView[]> {
     orderBy: [{ slot: { date: 'desc' } }, { slot: { startTime: 'desc' } }]
   });
 
-  return bookings.map(b => ({
+  return bookings.map((b) => ({
     id: b.id,
     slotId: b.slotId,
     calendarId: b.calendarId,
+    calendarTitle: b.slot.calendar.title,
+    date: b.slot.date.toISOString(),
+    startTime: b.slot.startTime,
+    endTime: b.slot.endTime,
+    specialistName: b.slot.calendar.title,
     isPaid: b.isPaid,
     status: b.status,
-    slot: {
-      date: b.slot.date,
-      startTime: b.slot.startTime,
-      endTime: b.slot.endTime,
-      calendar: { title: b.slot.calendar.title }
-    }
+  })) as BookingView[];
+}
+
+export async function getCalendarBookings(calendarId: number): Promise<BookingView[]> {
+  const bookings = await prisma.booking.findMany({
+    where: { calendarId },
+    include: { slot: { include: { calendar: true } } },
+    orderBy: [{ slot: { date: 'asc' } }, { slot: { startTime: 'asc' } }],
+  });
+
+  return bookings.map((b) => ({
+    id: b.id,
+    slotId: b.slotId,
+    calendarId: b.calendarId,
+    calendarTitle: b.slot.calendar.title,
+    date: b.slot.date.toISOString(),
+    startTime: b.slot.startTime,
+    endTime: b.slot.endTime,
+    specialistName: b.slot.calendar.title,
+    isPaid: b.isPaid,
+    status: b.status,
   })) as BookingView[];
 }
