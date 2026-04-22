@@ -32,7 +32,6 @@ const REFRESH_TOKEN_PREFIX = 'refresh:'; // Redis key: refresh:{userId}
  * 4. Логировать в консоль что admin создан
  */
 export async function seedAdmin(): Promise<void> {
-  // TODO: Реализовать
   const existingAdmin = await prisma.user.findFirst({
     where: { role: 'ADMIN' },
   });

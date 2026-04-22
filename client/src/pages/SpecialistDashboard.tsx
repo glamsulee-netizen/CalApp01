@@ -15,7 +15,6 @@
 // Если у пользователя нет Calendar → форма «Активировать календарь» (ввод кода)
 
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
 import { useCalendarStore } from '../store/calendarStore';
 import SpecialistCalendar from './SpecialistCalendar';
 import { apiGet } from '../api';
@@ -24,7 +23,6 @@ import { useToastStore } from '../components/UI/Toast';
 type Tab = 'calendar' | 'users' | 'settings';
 
 export default function SpecialistDashboard() {
-  const { user } = useAuthStore();
   const { currentCalendar, activatePromo, loadSubscriptions, switchCalendar } = useCalendarStore();
   const showToast = useToastStore((s) => s.show);
   
