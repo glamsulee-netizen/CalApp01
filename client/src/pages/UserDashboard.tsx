@@ -85,7 +85,7 @@ export default function UserDashboard() {
 
       <div style={{ padding: '0 var(--ios-inset)' }}>
         
-        {/* Pass Change Banner (Simple stub for now, would use real form) */}
+        {/* Password Change Banner - shown if user must change password */}
         {passwordFormVisible && (
           <div className="card" style={{ marginBottom: 16, background: 'rgba(255, 159, 10, 0.15)', borderColor: 'var(--ios-orange)' }}>
             <h3 style={{ color: 'var(--ios-orange)', margin: '0 0 8px 0', fontSize: 'var(--font-size-headline)' }}>
