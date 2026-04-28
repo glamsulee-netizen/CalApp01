@@ -75,6 +75,7 @@ interface CalendarState {
   loadSubscriptions: () => Promise<void>;
   subscribeToCalendar: (code: string) => Promise<void>;
   activatePromo: (code: string) => Promise<void>;
+  requestCalendarAccess: () => Promise<void>;
   loadWeekSlots: (calendarId: number, weekStart: Date) => Promise<void>;
   loadUpcoming: () => Promise<void>;
   setWeek: (weekStart: Date) => void;
@@ -186,6 +187,17 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       set({ isLoading: true, error: null });
       await apiPost('/calendar/activate', { code });
       await get().loadSubscriptions();
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  requestCalendarAccess: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      await apiPost('/calendar/request-access', {});
+      set({ isLoading: false });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
       throw error;

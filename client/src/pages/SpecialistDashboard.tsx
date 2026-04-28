@@ -17,6 +17,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCalendarStore } from '../store/calendarStore';
 import SpecialistCalendar from './SpecialistCalendar';
+import QRCodeView from '../components/Specialist/QRCodeView';
 import { apiGet } from '../api';
 import { useToastStore } from '../components/UI/Toast';
 
@@ -31,6 +32,8 @@ export default function SpecialistDashboard() {
 
   const [hasCalendar, setHasCalendar] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [showCopyLink, setShowCopyLink] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -124,9 +127,23 @@ export default function SpecialistDashboard() {
             Подписка активна (30 дней)
           </p>
         </div>
-        <button className="btn" style={{ margin: 0, padding: '6px 12px', borderRadius: 16, background: 'var(--card-bg)', color: 'var(--ios-blue)' }}>
-          QR
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button 
+            className="btn" 
+            style={{ margin: 0, padding: '6px 12px', borderRadius: 16, background: 'var(--card-bg)', color: 'var(--ios-blue)' }}
+            onClick={() => setShowCopyLink(true)}
+            title="Копировать ссылку"
+          >
+            🔗
+          </button>
+          <button 
+            className="btn" 
+            style={{ margin: 0, padding: '6px 12px', borderRadius: 16, background: 'var(--card-bg)', color: 'var(--ios-blue)' }}
+            onClick={() => setShowQR(true)}
+          >
+            QR
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '0 var(--ios-inset)', marginTop: 16 }}>
@@ -173,6 +190,51 @@ export default function SpecialistDashboard() {
           </div>
         )}
       </div>
+
+      {/* QR Code Modal */}
+      {showQR && currentCalendar && (
+        <QRCodeView
+          calendarShareUrl={`${window.location.origin}/calendar/${currentCalendar.shareLink}`}
+          calendarCode={currentCalendar.code}
+          paymentLink={currentCalendar.paymentLink}
+          onClose={() => setShowQR(false)}
+        />
+      )}
+
+      {/* Copy Link Modal */}
+      {showCopyLink && currentCalendar && (
+        <>
+          <div className="bottom-sheet-overlay" onClick={() => setShowCopyLink(false)} />
+          <div className="bottom-sheet" style={{ textAlign: 'center' }}>
+            <div className="bottom-sheet-handle" />
+            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Ссылка на календарь</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-md)' }}>
+              Поделитесь этой ссылкой с клиентами
+            </p>
+            <div style={{ 
+              background: 'var(--system-gray6)', 
+              padding: 'var(--spacing-md)', 
+              borderRadius: 'var(--radius-card)',
+              marginBottom: 'var(--spacing-md)',
+              wordBreak: 'break-all',
+              fontSize: 'var(--font-size-sm)'
+            }}>
+              {window.location.origin}/calendar/{currentCalendar.shareLink}
+            </div>
+            <button 
+              className="btn btn-primary btn-block"
+              onClick={() => {
+                const url = `${window.location.origin}/calendar/${currentCalendar.shareLink}`;
+                navigator.clipboard.writeText(url);
+                showToast('Ссылка скопирована!', 'success');
+                setShowCopyLink(false);
+              }}
+            >
+              Копировать ссылку
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

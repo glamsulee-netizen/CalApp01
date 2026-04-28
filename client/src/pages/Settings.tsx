@@ -9,11 +9,12 @@
 // - Destructive кнопка выхода
 // - Chevron на навигационных элементах
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { apiPatch } from '../api';
 import { useToastStore } from '../components/UI/Toast';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function Settings() {
   const { user, logout } = useAuthStore();
@@ -22,9 +23,12 @@ export default function Settings() {
   const [phone, setPhone] = useState('');
   const [messenger, setMessenger] = useState('');
   const [messengerType, setMessengerType] = useState('telegram');
-  const [pushEnabled, setPushEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const showToast = useToastStore((s) => s.show);
+  
+  // Push notifications
+  const { isSupported, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
+  const [pushLoading, setPushLoading] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -46,6 +50,23 @@ export default function Settings() {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleTogglePush = async () => {
+    try {
+      setPushLoading(true);
+      if (isSubscribed) {
+        await unsubscribe();
+        showToast('Push-уведомления отключены', 'success');
+      } else {
+        await subscribe();
+        showToast('Push-уведомления включены', 'success');
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Ошибка при настройке уведомлений', 'error');
+    } finally {
+      setPushLoading(false);
+    }
   };
 
   return (
@@ -101,14 +122,23 @@ export default function Settings() {
       <div className="section-header">Уведомления</div>
       <div className="card-inset" style={{ margin: '0 var(--ios-inset)' }}>
         <div className="card-row" style={{ cursor: 'default' }}>
-          <span className="card-row__label">Push-уведомления</span>
+          <span className="card-row__label">
+            Push-уведомления
+            {!isSupported && <span style={{ fontSize: 'var(--font-size-caption1)', color: 'var(--text-tertiary)', marginLeft: 8 }}>(не поддерживается)</span>}
+          </span>
           <button
-            className={`ios-toggle ${pushEnabled ? 'active' : ''}`}
-            onClick={() => setPushEnabled(!pushEnabled)}
+            className={`ios-toggle ${isSubscribed ? 'active' : ''}`}
+            onClick={handleTogglePush}
+            disabled={!isSupported || pushLoading}
+            style={{ opacity: !isSupported || pushLoading ? 0.5 : 1 }}
           />
         </div>
       </div>
-      <div className="section-footer">Получайте уведомления о бронированиях и напоминания за час до записи.</div>
+      <div className="section-footer">
+        {isSubscribed 
+          ? 'Вы получаете уведомления о бронированиях и напоминания.'
+          : 'Получайте уведомления о бронированиях и напоминания за час до записи.'}
+      </div>
 
       {/* Кнопка Сохранить */}
       <div style={{ margin: 'var(--spacing-lg) var(--ios-inset)' }}>

@@ -20,6 +20,7 @@ import BookingBar from '../components/Calendar/BookingBar';
 import ChangePasswordModal from '../components/UI/ChangePasswordModal';
 import SubscribeModal from '../components/UI/SubscribeModal';
 import PromoModal from '../components/UI/PromoModal';
+import { useToastStore } from '../components/UI/Toast';
 
 export default function UserDashboard() {
   const { user } = useAuthStore();
@@ -33,12 +34,15 @@ export default function UserDashboard() {
     selectSlot,
     loadSubscriptions, 
     loadUpcoming,
-    switchCalendar 
+    switchCalendar,
+    requestCalendarAccess 
   } = useCalendarStore();
 
   const [passwordFormVisible, setPasswordFormVisible] = useState(user?.mustChangePassword || false);
   const [subscribeModalVisible, setSubscribeModalVisible] = useState(false);
   const [promoModalVisible, setPromoModalVisible] = useState(false);
+  const [isRequestingAccess, setIsRequestingAccess] = useState(false);
+  const showToast = useToastStore((s) => s.show);
 
   useEffect(() => {
     loadSubscriptions().then(() => {
@@ -54,6 +58,18 @@ export default function UserDashboard() {
   const handleSlotClick = (slot: any) => {
     if (slot.isOpen && !slot.isBooked) {
       selectSlot(slot.id === selectedSlotId ? null : slot.id);
+    }
+  };
+
+  const handleRequestCalendarAccess = async () => {
+    try {
+      setIsRequestingAccess(true);
+      await requestCalendarAccess();
+      showToast('Запрос отправлен. Ожидайте одобрения от администратора.', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Не удалось отправить запрос', 'error');
+    } finally {
+      setIsRequestingAccess(false);
     }
   };
 
@@ -209,9 +225,10 @@ export default function UserDashboard() {
             <button 
               className="btn" 
               style={{ background: 'var(--system-gray5)', color: 'var(--text-primary)', width: '100%', borderRadius: 12 }}
-              onClick={() => setPromoModalVisible(true)}
+              onClick={handleRequestCalendarAccess}
+              disabled={isRequestingAccess}
             >
-              Стать специалистом
+              {isRequestingAccess ? 'Отправка...' : 'Стать специалистом'}
             </button>
           </div>
         )}
