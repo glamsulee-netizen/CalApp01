@@ -24,20 +24,18 @@ export default function LoginPage() {
     e.preventDefault();
     console.log('[LoginPage] Starting login for:', email);
     
+    let user;
     try {
-      await login(email, password);
+      user = await login(email, password);
+      console.log('[LoginPage] Login successful, user:', user);
     } catch (error) {
       console.error('[LoginPage] Login failed:', error);
       // Ошибка уже обработана в authStore и показана пользователю
       return; // Не продолжаем перенаправление при ошибке
     }
     
-    // Получаем текущее состояние после успешного логина
-    const { user, isAuthenticated } = useAuthStore.getState();
-    console.log('[LoginPage] After login - user:', user, 'isAuthenticated:', isAuthenticated);
-    
-    if (!isAuthenticated || !user) {
-      console.log('[LoginPage] User not authenticated after login');
+    if (!user) {
+      console.log('[LoginPage] No user returned after login');
       return;
     }
     

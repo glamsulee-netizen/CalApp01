@@ -76,9 +76,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       getSocket(data.accessToken);
       set({ user: data.user, isAuthenticated: true, isLoading: false });
       console.log('[AuthStore] State updated, user role in store:', data.user.role);
+      return data.user; // Возвращаем данные пользователя
     } catch (error: any) {
       console.error('[AuthStore] Login error:', error.message);
       set({ error: error.message, isLoading: false });
+      throw error; // Пробрасываем ошибку дальше
     }
   },
 
