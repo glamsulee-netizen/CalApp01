@@ -65,15 +65,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email, password) => {
     try {
+      console.log('[AuthStore] Login started for:', email);
       set({ isLoading: true, error: null });
       const data = await api<{ accessToken: string; user: User }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
+      console.log('[AuthStore] Login successful, user role:', data.user.role, 'user data:', data.user);
       setAccessToken(data.accessToken);
       getSocket(data.accessToken);
       set({ user: data.user, isAuthenticated: true, isLoading: false });
+      console.log('[AuthStore] State updated, user role in store:', data.user.role);
     } catch (error: any) {
+      console.error('[AuthStore] Login error:', error.message);
       set({ error: error.message, isLoading: false });
     }
   },

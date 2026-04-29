@@ -22,11 +22,28 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[LoginPage] Starting login for:', email);
     await login(email, password);
-    const { user } = useAuthStore.getState();
+    
+    // Получаем текущее состояние после логина
+    const { user, isAuthenticated } = useAuthStore.getState();
+    console.log('[LoginPage] After login - user:', user, 'isAuthenticated:', isAuthenticated);
+    
     // Админ редиректится в админ-панель
-    const returnUrl = user?.role === 'ADMIN' ? '/admin' : (searchParams.get('return') || '/');
-    navigate(returnUrl);
+    let returnUrl = searchParams.get('return') || '/';
+    
+    if (user?.role === 'ADMIN') {
+      console.log('[LoginPage] User is ADMIN, redirecting to /admin');
+      returnUrl = '/admin';
+    } else {
+      console.log('[LoginPage] User role:', user?.role, 'redirecting to:', returnUrl);
+    }
+    
+    // Добавляем небольшую задержку для гарантии обновления состояния
+    setTimeout(() => {
+      console.log('[LoginPage] Navigating to:', returnUrl);
+      navigate(returnUrl);
+    }, 100);
   };
 
   return (
