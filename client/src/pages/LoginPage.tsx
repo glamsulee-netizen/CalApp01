@@ -23,27 +23,35 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('[LoginPage] Starting login for:', email);
-    await login(email, password);
     
-    // Получаем текущее состояние после логина
+    try {
+      await login(email, password);
+    } catch (error) {
+      console.error('[LoginPage] Login failed:', error);
+      // Ошибка уже обработана в authStore и показана пользователю
+      return; // Не продолжаем перенаправление при ошибке
+    }
+    
+    // Получаем текущее состояние после успешного логина
     const { user, isAuthenticated } = useAuthStore.getState();
     console.log('[LoginPage] After login - user:', user, 'isAuthenticated:', isAuthenticated);
+    
+    if (!isAuthenticated || !user) {
+      console.log('[LoginPage] User not authenticated after login');
+      return;
+    }
     
     // Админ редиректится в админ-панель
     let returnUrl = searchParams.get('return') || '/';
     
-    if (user?.role === 'ADMIN') {
+    if (user.role === 'ADMIN') {
       console.log('[LoginPage] User is ADMIN, redirecting to /admin');
       returnUrl = '/admin';
     } else {
-      console.log('[LoginPage] User role:', user?.role, 'redirecting to:', returnUrl);
+      console.log('[LoginPage] User role:', user.role, 'redirecting to:', returnUrl);
     }
     
-    // Добавляем небольшую задержку для гарантии обновления состояния
-    setTimeout(() => {
-      console.log('[LoginPage] Navigating to:', returnUrl);
-      navigate(returnUrl);
-    }, 100);
+    navigate(returnUrl);
   };
 
   return (
