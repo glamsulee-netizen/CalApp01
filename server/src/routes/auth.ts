@@ -102,7 +102,7 @@ authRouter.post('/login', validate(loginSchema), async (req, res, next) => {
     // Refresh token в httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production', // вместо true
       sameSite: 'strict',
       maxAge: 30 * 24 * 60 * 60 * 1000,
       path: '/',
