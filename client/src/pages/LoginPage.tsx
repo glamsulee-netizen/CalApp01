@@ -23,7 +23,9 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login(email, password);
-    const returnUrl = searchParams.get('return') || '/';
+    const { user } = useAuthStore.getState();
+    // Админ редиректится в админ-панель
+    const returnUrl = user?.role === 'ADMIN' ? '/admin' : (searchParams.get('return') || '/');
     navigate(returnUrl);
   };
 
