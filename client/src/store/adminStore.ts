@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiGet, apiPost } from '../utils/api';
+import { apiGet, apiPost } from '../api';
 
 export interface PlatformStats {
   totalUsers: number;
