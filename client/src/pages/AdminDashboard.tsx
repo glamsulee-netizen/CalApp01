@@ -9,15 +9,19 @@
 // 3. Промокоды: генератор + список (PromoGenerator)
 // 4. Настройки: шаблон календаря, регистрация open/close
 // 5. SMTP: управление провайдерами (добавить/редактировать/удалить)
+// 6. Смена пароля администратора через ChangePasswordModal
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
+import { useAuthStore } from '../store/authStore';
+import ChangePasswordModal from '../components/UI/ChangePasswordModal';
 
 type AdminTab = 'stats' | 'users' | 'promo' | 'settings' | 'smtp';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('stats');
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const { stats, promos, isLoading, loadStats, loadPromos, generatePromos } = useAdminStore();
 
   const [promoType, setPromoType] = useState<'SUBSCRIPTION_MONTH' | 'SUBSCRIPTION_YEAR'>('SUBSCRIPTION_MONTH');
@@ -46,21 +50,43 @@ export default function AdminDashboard() {
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '0.5px solid var(--border-color)',
-        display: 'flex', alignItems: 'center'
+        display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between'
       }}>
-        <Link to="/" style={{ 
-          marginRight: 16, 
-          fontSize: 24, 
-          textDecoration: 'none', 
-          width: 40, height: 40, 
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--card-bg)', borderRadius: '50%' 
-        }}>
-          ⬅️
-        </Link>
-        <h1 style={{ fontSize: 'var(--font-size-title1)', fontWeight: 700, margin: 0 }}>
-          Админ-панель
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Link to="/" style={{
+            marginRight: 16,
+            fontSize: 24,
+            textDecoration: 'none',
+            width: 40, height: 40,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--card-bg)', borderRadius: '50%'
+          }}>
+            ⬅️
+          </Link>
+          <h1 style={{ fontSize: 'var(--font-size-title1)', fontWeight: 700, margin: 0 }}>
+            Админ-панель
+          </h1>
+        </div>
+        
+        <button
+          onClick={() => setShowChangePassword(true)}
+          style={{
+            background: 'var(--ios-blue)',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: 20,
+            fontSize: 'var(--font-size-subheadline)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+        >
+          🔐 Сменить пароль
+        </button>
       </div>
 
       {/* Tabs */}
@@ -248,6 +274,16 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        onSuccess={() => {
+          setShowChangePassword(false);
+          alert('Пароль успешно изменен!');
+        }}
+      />
     </div>
   );
 }
