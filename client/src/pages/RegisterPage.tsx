@@ -19,7 +19,25 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await register(email, password, name || undefined);
+    console.log('[RegisterPage] Starting registration for:', email);
+    
+    let user;
+    try {
+      user = await register(email, password, name || undefined);
+      console.log('[RegisterPage] Registration successful, user:', user);
+    } catch (error) {
+      console.error('[RegisterPage] Registration failed:', error);
+      // Ошибка уже обработана в authStore и показана пользователю
+      return; // Не продолжаем перенаправление при ошибке
+    }
+    
+    if (!user) {
+      console.log('[RegisterPage] No user returned after registration');
+      return;
+    }
+    
+    // После успешной регистрации перенаправляем на главную
+    console.log('[RegisterPage] Redirecting to /');
     navigate('/');
   };
 

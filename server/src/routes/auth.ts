@@ -72,12 +72,15 @@ authRouter.post('/register', validate(registerSchema), async (req, res, next) =>
     const result = await registerUser(email, password, name);
 
     // Refresh token в httpOnly cookie
+    // Для продакшена используем lax или none в зависимости от конфигурации
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
+      secure: isProduction, // Только HTTPS в продакшене
+      sameSite: isProduction ? 'lax' : 'strict', // lax для кросс-доменных запросов в продакшене
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
       path: '/',
+      domain: isProduction ? '.bookmytime.ru' : undefined, // Для всех поддоменов
     });
 
     res.status(201).json({
@@ -100,12 +103,15 @@ authRouter.post('/login', validate(loginSchema), async (req, res, next) => {
     const result = await loginUser(email, password);
 
     // Refresh token в httpOnly cookie
+    // Для продакшена используем lax или none в зависимости от конфигурации
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // вместо true
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      secure: isProduction, // Только HTTPS в продакшене
+      sameSite: isProduction ? 'lax' : 'strict', // lax для кросс-доменных запросов в продакшене
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
       path: '/',
+      domain: isProduction ? '.bookmytime.ru' : undefined, // Для всех поддоменов
     });
 
     res.json({

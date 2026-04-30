@@ -86,16 +86,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   register: async (email, password, name) => {
     try {
+      console.log('[AuthStore] Register started for:', email);
       set({ isLoading: true, error: null });
       const data = await api<{ accessToken: string; user: User }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify({ email, password, name }),
       });
+      console.log('[AuthStore] Register successful, user:', data.user);
       setAccessToken(data.accessToken);
       getSocket(data.accessToken);
       set({ user: data.user, isAuthenticated: true, isLoading: false });
+      return data.user; // Возвращаем данные пользователя для навигации
     } catch (error: any) {
+      console.error('[AuthStore] Register error:', error.message);
       set({ error: error.message, isLoading: false });
+      throw error; // Пробрасываем ошибку дальше
     }
   },
 
