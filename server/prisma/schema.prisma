@@ -23,6 +23,7 @@ datasource db {
 enum PlatformRole {
   ADMIN
   USER
+  MASTER
 }
 
 /// Роль пользователя в рамках конкретного календаря

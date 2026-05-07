@@ -1,0 +1,51 @@
+# ============================================
+# CalApp01 — Docker Compose Override for Local Development
+# ============================================
+# Используется вместе с основным docker-compose.yml:
+# docker-compose -f docker-compose.yml -f docker-compose.local.yml up
+#
+# Переопределяет конфигурацию Caddy для локального проксирования
+# и отключает ненужные для разработки сервисы (если нужно).
+
+version: '3.8'
+
+services:
+  # Переопределяем Caddy для использования локального конфига
+  caddy:
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
+    # Отключаем публикацию портов 443, если не нужен HTTPS локально
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+
+  # Клиент: можно использовать dev-сервер вместо сборки
+  # Но в текущей конфигурации клиент всё равно собирается через Docker.
+  # Для ускорения разработки можно закомментировать клиент и запускать Vite отдельно.
+  # client:
+  #   build:
+  #     args:
+  #       VITE_API_URL: http://localhost/api
+  #       VITE_WS_URL: http://localhost
+
+  # Клиент: переопределяем переменные сборки для локальной разработки
+  client:
+    build:
+      args:
+        VITE_API_URL: http://localhost/api
+        VITE_WS_URL: http://localhost
+        VITE_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+
+  # Сервер: переопределяем переменные окружения для локальной разработки
+  server:
+    environment:
+      NODE_ENV: development
+      APP_URL: http://localhost
+      CORS_ORIGIN: http://localhost,http://localhost:5173,http://localhost:80
+      REGISTRATION_OPEN: "true"
+    # Для hot-reload можно раскомментировать строки ниже
+    # volumes:
+    #   - ./server/src:/app/src
+    #   - ./server/prisma:/app/prisma
+    # command: npm run dev

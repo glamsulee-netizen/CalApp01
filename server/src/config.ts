@@ -25,7 +25,7 @@ export const config = {
   serverPort: parseInt(optional('SERVER_PORT', '3000'), 10),
   nodeEnv: optional('NODE_ENV', 'development'),
   appUrl: optional('APP_URL', 'http://localhost:3000'),
-  corsOrigin: optional('CORS_ORIGIN', 'http://localhost:5173'),
+  corsOrigin: optional('CORS_ORIGIN', 'http://localhost:5173,http://localhost').split(',').map(s => s.trim()),
 
   // --- БД ---
   databaseUrl: required('DATABASE_URL'),

@@ -1,25 +1,50 @@
 # ============================================
-# CalApp01 — Caddy Configuration
+# CalApp01 — Caddy Configuration (Production)
 # ============================================
-# Automatic HTTPS via Let's Encrypt / ZeroSSL
 # Proxy API -> server:3000, Static -> client:80
+# Automatically obtains SSL certificates via Let's Encrypt
+# Domain is taken from APP_DOMAIN environment variable
 
-{$APP_DOMAIN:localhost} {
-	# Compress responses
-	encode zstd gzip
+{$APP_DOMAIN} {
+    # Redirect HTTP to HTTPS (disabled for local)
+    # redir https://{$APP_DOMAIN}{uri} permanent
 
-	# Proxy API requests
-	handle /api/* {
-		reverse_proxy server:{$SERVER_PORT:3000}
-	}
+    # Compress responses
+    encode zstd gzip
 
-	# Proxy WebSocket Connect
-	handle /socket.io/* {
-		reverse_proxy server:{$SERVER_PORT:3000}
-	}
+    # Proxy API requests
+    handle /api/* {
+        reverse_proxy server:{$SERVER_PORT:3000}
+    }
 
-	# Proxy Frontend
-	handle {
-		reverse_proxy client:80
-	}
+    # Proxy WebSocket Connect
+    handle /socket.io/* {
+        reverse_proxy server:{$SERVER_PORT:3000}
+    }
+
+    # Proxy Frontend
+    handle {
+        reverse_proxy client:80
+    }
+}
+
+# Fallback for local development (if APP_DOMAIN not set)
+http://* {
+    # Compress responses
+    encode zstd gzip
+
+    # Proxy API requests
+    handle /api/* {
+        reverse_proxy server:{$SERVER_PORT:3000}
+    }
+
+    # Proxy WebSocket Connect
+    handle /socket.io/* {
+        reverse_proxy server:{$SERVER_PORT:3000}
+    }
+
+    # Proxy Frontend
+    handle {
+        reverse_proxy client:80
+    }
 }

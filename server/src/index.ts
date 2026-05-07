@@ -49,6 +49,8 @@ export const io = new SocketIOServer(httpServer, {
 });
 
 // --- Middleware ---
+app.set('trust proxy', 1); // Доверяем проксю (Caddy)
+
 app.use(helmet({
   contentSecurityPolicy: false, // PWA требует inline-стили
 }));

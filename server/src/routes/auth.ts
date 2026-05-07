@@ -47,14 +47,19 @@ export const authRouter = Router();
 
 // --- Zod-схемы валидации ---
 
+// Allow local addresses like admin@localhost while keeping a basic email check
+const emailSchema = z.string().min(3).refine((v) => /^[^\s@]+@[^\s@]+$/.test(v), {
+  message: 'Некорректный email',
+});
+
 const registerSchema = z.object({
-  email: z.string().email('Некорректный email'),
+  email: emailSchema,
   password: z.string().min(6, 'Пароль минимум 6 символов'),
   name: z.string().optional(),
 });
 
 const loginSchema = z.object({
-  email: z.string().email('Некорректный email'),
+  email: emailSchema,
   password: z.string().min(1, 'Введите пароль'),
 });
 
@@ -74,13 +79,15 @@ authRouter.post('/register', validate(registerSchema), async (req, res, next) =>
     // Refresh token в httpOnly cookie
     // Для продакшена используем lax или none в зависимости от конфигурации
     const isProduction = process.env.NODE_ENV === 'production';
+    const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+    
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: isProduction, // Только HTTPS в продакшене
-      sameSite: isProduction ? 'lax' : 'strict', // lax для кросс-доменных запросов в продакшене
+      secure: isProduction && !isLocalhost, // Только HTTPS в продакшене, но не для localhost
+      sameSite: isProduction && !isLocalhost ? 'lax' : 'strict', // strict для localhost
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
       path: '/',
-      domain: isProduction ? '.bookmytime.ru' : undefined, // Для всех поддоменов
+      domain: isProduction && !isLocalhost ? '.bookmytime.ru' : undefined, // Только для продакшена
     });
 
     res.status(201).json({
@@ -105,13 +112,15 @@ authRouter.post('/login', validate(loginSchema), async (req, res, next) => {
     // Refresh token в httpOnly cookie
     // Для продакшена используем lax или none в зависимости от конфигурации
     const isProduction = process.env.NODE_ENV === 'production';
+    const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+    
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
-      secure: isProduction, // Только HTTPS в продакшене
-      sameSite: isProduction ? 'lax' : 'strict', // lax для кросс-доменных запросов в продакшене
+      secure: isProduction && !isLocalhost, // Только HTTPS в продакшене, но не для localhost
+      sameSite: isProduction && !isLocalhost ? 'lax' : 'strict', // strict для localhost
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
       path: '/',
-      domain: isProduction ? '.bookmytime.ru' : undefined, // Для всех поддоменов
+      domain: isProduction && !isLocalhost ? '.bookmytime.ru' : undefined, // Только для продакшена
     });
 
     res.json({

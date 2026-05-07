@@ -1,0 +1,24 @@
+# ============================================
+# CalApp01 — Caddy Configuration for Local Development
+# ============================================
+# Proxy API -> server:3000, Static -> client:80
+
+http://* {
+	# Compress responses
+	encode zstd gzip
+
+	# Proxy API requests
+	handle /api/* {
+		reverse_proxy server:3000
+	}
+
+	# Proxy WebSocket Connect
+	handle /socket.io/* {
+		reverse_proxy server:3000
+	}
+
+	# Proxy Frontend (built static files)
+	handle {
+		reverse_proxy client:80
+	}
+}

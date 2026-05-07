@@ -46,7 +46,7 @@ const generatePromoSchema = z.object({
 });
 
 const updateUserSchema = z.object({
-  role: z.enum(['ADMIN', 'USER']).optional(),
+  role: z.enum(['ADMIN', 'USER', 'MASTER']).optional(),
   isActive: z.boolean().optional(),
 });
 

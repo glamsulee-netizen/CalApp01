@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 import { useAuthStore } from '../store/authStore';
 import ChangePasswordModal from '../components/UI/ChangePasswordModal';
+import UserList from '../components/Admin/UserList';
 
 type AdminTab = 'stats' | 'users' | 'promo' | 'settings' | 'smtp';
 
@@ -161,9 +162,7 @@ export default function AdminDashboard() {
         {activeTab === 'users' && (
           <div className="card">
             <h3 style={{ margin: '0 0 16px', fontSize: 'var(--font-size-headline)' }}>Управление пользователями</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-subheadline)' }}>
-              (В разработке) Список пользователей с возможностью выдачи ролей.
-            </p>
+            <UserList />
           </div>
         )}
         

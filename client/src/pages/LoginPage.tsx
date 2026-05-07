@@ -9,27 +9,60 @@
 // - Анимация scale при тапе
 // - Минималистичный чистый стиль
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 export default function LoginPage() {
+  console.error('[LoginPage] Component rendering');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, isLoading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    console.log('[LoginPage] Component mounted');
+    console.log('[LoginPage] isLoading:', isLoading);
+    console.log('[LoginPage] error:', error);
+  }, [isLoading, error]);
+
+  useEffect(() => {
+    console.error('[LoginPage] useEffect running');
+    if (buttonRef.current) {
+      console.error('[LoginPage] Button ref current:', buttonRef.current);
+      console.error('[LoginPage] Button disabled:', buttonRef.current.disabled);
+      console.error('[LoginPage] Button style:', buttonRef.current.style);
+      console.error('[LoginPage] Button pointerEvents:', buttonRef.current.style.pointerEvents);
+      // Log computed styles
+      const computed = window.getComputedStyle(buttonRef.current);
+      console.error('[LoginPage] Button computed pointerEvents:', computed.pointerEvents);
+      console.error('[LoginPage] Button computed opacity:', computed.opacity);
+      console.error('[LoginPage] Button computed cursor:', computed.cursor);
+      // Log position and dimensions
+      const rect = buttonRef.current.getBoundingClientRect();
+      console.error('[LoginPage] Button rect:', { top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+    } else {
+      console.error('[LoginPage] Button ref is null');
+    }
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('[LoginPage] handleSubmit called, preventing default');
     e.preventDefault();
     console.log('[LoginPage] Starting login for:', email);
+    console.log('[LoginPage] isLoading:', isLoading);
+    console.log('[LoginPage] error:', error);
     
     let user;
     try {
+      console.log('[LoginPage] Calling login function...');
       user = await login(email, password);
       console.log('[LoginPage] Login successful, user:', user);
     } catch (error) {
       console.error('[LoginPage] Login failed:', error);
+      console.error('[LoginPage] Error details:', error);
       // Ошибка уже обработана в authStore и показана пользователю
       return; // Не продолжаем перенаправление при ошибке
     }
@@ -49,11 +82,34 @@ export default function LoginPage() {
       console.log('[LoginPage] User role:', user.role, 'redirecting to:', returnUrl);
     }
     
+    console.log('[LoginPage] Navigating to:', returnUrl);
     navigate(returnUrl);
   };
 
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', padding: '0 var(--ios-inset)' }}>
+      {/* Test div to check if React event handlers work */}
+      <div
+        onClick={() => console.log('[LoginPage] Test div clicked!')}
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 50,
+          height: 50,
+          backgroundColor: 'red',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          borderRadius: '8px',
+          zIndex: 1000
+        }}
+      >
+        Test
+      </div>
+
       {/* Logo / Title area */}
       <div style={{ textAlign: 'center', marginBottom: '40px' }}>
         <div style={{
@@ -116,8 +172,25 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={isLoading} style={{ borderRadius: 'var(--radius-card)' }}>
-          {isLoading ? 'Вход...' : 'Войти'}
+        <button
+          type="submit"
+          className="btn btn-primary btn-block btn-lg"
+          style={{ borderRadius: 'var(--radius-card)' }}
+          ref={buttonRef}
+          onMouseDown={(e) => {
+            console.error('[LoginPage] Button onMouseDown', e);
+          }}
+          onMouseUp={(e) => {
+            console.error('[LoginPage] Button onMouseUp', e);
+          }}
+          onClick={(e) => {
+            console.error('[LoginPage] Button onClick (direct) called');
+            e.preventDefault();
+            console.error('[LoginPage] Calling handleSubmit directly');
+            handleSubmit(e);
+          }}
+        >
+          Войти
         </button>
       </form>
 
